@@ -1,0 +1,20 @@
+name: AfterCore
+main: com.afterlands.core.bootstrap.AfterCorePlugin
+version: 0.1.0
+build-date: '${maven.build.timestamp}'
+author: AfterLands
+description: AfterLands - Core Library Plugin
+softdepend: [ProtocolLib, PlaceholderAPI]
+
+commands:
+  acore:
+    description: AfterCore diagnostics and admin commands
+    usage: /acore <status|db|threads|system|metrics|all>
+    permission: aftercore.admin
+    permission-message: You don't have permission to use this command
+
+permissions:
+  aftercore.admin:
+    description: Access to AfterCore admin commands
+    default: op
+

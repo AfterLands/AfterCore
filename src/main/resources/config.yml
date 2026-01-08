@@ -1,0 +1,47 @@
+# AfterCore - Configuração base
+#
+# Regra: ZERO I/O na main thread. Tudo que tocar DB deve ser async.
+
+# Versão do config (usado para migrations automáticas)
+config-version: 1
+
+database:
+  enabled: true
+  # mysql | sqlite
+  type: "mysql"
+
+  # MySQL (produção)
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "afterlands"
+    username: "root"
+    password: ""
+
+  # SQLite (dev/local). O caminho relativo é resolvido dentro da pasta do plugin.
+  sqlite:
+    file: "aftercore.db"
+    # Opcional: SQL executado ao abrir cada conexão (PRAGMA etc.)
+    connection-init-sql: "PRAGMA foreign_keys=ON;"
+
+  pool:
+    maximum-pool-size: 10
+    minimum-idle: 2
+    connection-timeout: 30000
+    idle-timeout: 600000
+    max-lifetime: 1800000
+
+concurrency:
+  # Threads para tarefas bloqueantes (DB / I/O). Ajustar conforme hardware.
+  io-threads: 8
+  # Threads para CPU-bound (parsing pesado, compilação de frames, etc.)
+  cpu-threads: 4
+
+protocol:
+  # Intervalo de debounce em ms. Chunks marcados dentro desta janela são coalescidos.
+  batch-interval-ms: 50
+  # Máximo de chunks processados por batch por player.
+  max-chunks-per-batch: 16
+
+debug: false
+

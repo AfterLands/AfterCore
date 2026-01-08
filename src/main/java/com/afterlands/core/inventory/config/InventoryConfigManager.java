@@ -1,0 +1,708 @@
+package com.afterlands.core.inventory.config;
+
+import com.afterlands.core.config.ConfigService;
+import com.afterlands.core.inventory.InventoryConfig;
+import com.afterlands.core.inventory.animation.AnimationConfig;
+import com.afterlands.core.inventory.item.GuiItem;
+import com.afterlands.core.inventory.pagination.PaginationConfig;
+import com.afterlands.core.inventory.tab.TabConfig;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.io.File;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.stream.Collectors;
+
+/**
+ * Gerenciador de configurações de inventários.
+ *
+ * <p>Responsável por:</p>
+ * <ul>
+ *     <li>Carregar inventários de inventories.yml</li>
+ *     <li>Parse de itens, tabs, paginação, animações</li>
+ *     <li>Cache de configurações (invalidado em reload)</li>
+ *     <li>Validação de schema</li>
+ * </ul>
+ *
+ * <p><b>Thread Safety:</b> Cache thread-safe (Caffeine), parsing sync.</p>
+ */
+public class InventoryConfigManager {
+
+    private final Plugin plugin;
+    private final ConfigService configService;
+    private final File inventoriesFile;
+    private FileConfiguration inventoriesConfig;
+
+    // Cache permanente de configurações (invalidado apenas em reload)
+    private final Cache<String, InventoryConfig> configCache;
+
+    // Templates de itens padrão (reutilizáveis)
+    private final Map<String, GuiItem> defaultItems;
+
+    public InventoryConfigManager(@NotNull Plugin plugin, @NotNull ConfigService configService) {
+        this.plugin = plugin;
+        this.configService = configService;
+        this.inventoriesFile = new File(plugin.getDataFolder(), "inventories.yml");
+        this.defaultItems = new HashMap<>();
+
+        // Cache permanente (sem TTL, apenas invalidação manual)
+        this.configCache = Caffeine.newBuilder()
+                .maximumSize(100)
+                .build();
+
+        loadConfiguration();
+    }
+
+    /**
+     * Carrega configuração de inventories.yml.
+     *
+     * <p>Cria arquivo padrão se não existir.</p>
+     */
+    public void loadConfiguration() {
+        if (!inventoriesFile.exists()) {
+            plugin.saveResource("inventories.yml", false);
+        }
+
+        inventoriesConfig = YamlConfiguration.loadConfiguration(inventoriesFile);
+        configCache.invalidateAll();
+        defaultItems.clear();
+
+        // Carrega templates padrão
+        loadDefaultItems();
+
+        plugin.getLogger().info("Loaded inventories configuration (config-version: " +
+                inventoriesConfig.getInt("config-version", 1) + ")");
+    }
+
+    /**
+     * Carrega templates de itens padrão.
+     */
+    private void loadDefaultItems() {
+        ConfigurationSection section = inventoriesConfig.getConfigurationSection("default-items");
+        if (section == null) {
+            return;
+        }
+
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection itemSection = section.getConfigurationSection(key);
+            if (itemSection != null) {
+                GuiItem item = parseGuiItem(key, -1, itemSection);
+                defaultItems.put(key, item);
+                plugin.getLogger().fine("Loaded default item template: " + key);
+            }
+        }
+    }
+
+    /**
+     * Obtém configuração de um inventário.
+     *
+     * <p>Cache hit: retorna imediatamente.
+     * Cache miss: parse e cache.</p>
+     *
+     * @param inventoryId ID do inventário
+     * @return InventoryConfig ou null se não existir
+     */
+    @Nullable
+    public InventoryConfig getInventoryConfig(@NotNull String inventoryId) {
+        return configCache.get(inventoryId, this::loadInventoryConfig);
+    }
+
+    /**
+     * Carrega configuração de inventário (cache miss).
+     */
+    @Nullable
+    private InventoryConfig loadInventoryConfig(@NotNull String inventoryId) {
+        ConfigurationSection section = inventoriesConfig.getConfigurationSection("inventories." + inventoryId);
+        if (section == null) {
+            plugin.getLogger().warning("Inventory not found: " + inventoryId);
+            return null;
+        }
+
+        try {
+            return parseInventoryConfig(inventoryId, section);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to parse inventory: " + inventoryId, e);
+            return null;
+        }
+    }
+
+    /**
+     * Parse de InventoryConfig completo.
+     */
+    @NotNull
+    private InventoryConfig parseInventoryConfig(@NotNull String id, @NotNull ConfigurationSection section) {
+        String title = section.getString("title", "");
+        int size = section.getInt("size", 3);
+
+        // Parse items
+        List<GuiItem> items = parseItems(section.getConfigurationSection("items"));
+
+        // Parse tabs
+        List<TabConfig> tabs = parseTabs(section);
+
+        // Parse pagination
+        PaginationConfig pagination = parsePagination(section.getConfigurationSection("pagination"));
+
+        // Parse animations
+        List<AnimationConfig> animations = parseAnimations(section.getConfigurationSection("animations"));
+
+        // Parse persistence
+        InventoryConfig.PersistenceConfig persistence = parsePersistence(section.getConfigurationSection("persistence"));
+
+        // Shared flag
+        boolean shared = section.getBoolean("shared", false);
+
+        // Title update interval (0 = disabled)
+        int titleUpdateInterval = section.getInt("title_update_interval", 0);
+
+        // Metadata
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("raw_section", section);
+
+        return new InventoryConfig(id, title, size, items, tabs, pagination, animations, persistence, shared, titleUpdateInterval, metadata);
+    }
+
+    /**
+     * Parse de itens.
+     */
+    @NotNull
+    private List<GuiItem> parseItems(@Nullable ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+
+        List<GuiItem> items = new ArrayList<>();
+
+        for (String slotKey : section.getKeys(false)) {
+            ConfigurationSection itemSection = section.getConfigurationSection(slotKey);
+            if (itemSection == null) {
+                continue;
+            }
+
+            // Parse slots (pode ser range: "0-8", lista: "0;4;8", ou único: "13")
+            List<Integer> slots = parseSlotRange(slotKey);
+
+            for (int slot : slots) {
+                GuiItem item = parseGuiItem(slotKey, slot, itemSection);
+                items.add(item);
+            }
+        }
+
+        return items;
+    }
+
+    /**
+     * Parse de slot range.
+     *
+     * <p>Exemplos:</p>
+     * <ul>
+     *     <li>"13" → [13]</li>
+     *     <li>"0-8" → [0,1,2,3,4,5,6,7,8]</li>
+     *     <li>"0;4;8" → [0,4,8]</li>
+     *     <li>"0-8;36-44" → [0-8, 36-44]</li>
+     * </ul>
+     */
+    @NotNull
+    private List<Integer> parseSlotRange(@NotNull String slotKey) {
+        List<Integer> slots = new ArrayList<>();
+
+        for (String part : slotKey.split(";")) {
+            if (part.contains("-")) {
+                String[] range = part.split("-");
+                int start = Integer.parseInt(range[0].trim());
+                int end = Integer.parseInt(range[1].trim());
+                for (int i = start; i <= end; i++) {
+                    slots.add(i);
+                }
+            } else {
+                try {
+                    slots.add(Integer.parseInt(part.trim()));
+                } catch (NumberFormatException e) {
+                    // Pode ser keyword como "top", "bottom", etc.
+                    // Implementação futura
+                }
+            }
+        }
+
+        return slots;
+    }
+
+    /**
+     * Parse de GuiItem.
+     */
+    @NotNull
+    private GuiItem parseGuiItem(@NotNull String key, int slot, @NotNull ConfigurationSection section) {
+        GuiItem.Builder builder = new GuiItem.Builder();
+
+        builder.slot(slot);
+        builder.type(section.getString("type", key));
+
+        // Material
+        String materialStr = section.getString("material", "STONE");
+        try {
+            Material material = Material.valueOf(materialStr.toUpperCase());
+            builder.material(material);
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Invalid material: " + materialStr + " in item " + key);
+            builder.material(Material.STONE);
+        }
+
+        // Data
+        builder.data((short) section.getInt("data", 0));
+
+        // Amount
+        builder.amount(section.getInt("amount", 1));
+
+        // Name
+        builder.name(section.getString("name", ""));
+
+        // Lore
+        if (section.contains("lore")) {
+            builder.lore(section.getStringList("lore"));
+        }
+
+        // Flags
+        builder.enabled(section.getBoolean("enabled", true));
+        builder.enchanted(section.getBoolean("enchanted", false));
+        builder.hideFlags(section.getBoolean("hide-flags", false));
+
+        // Actions
+        if (section.contains("actions")) {
+            builder.actions(section.getStringList("actions"));
+        }
+
+        // Head
+        if (section.contains("head")) {
+            String headValue = section.getString("head");
+            if ("self".equalsIgnoreCase(headValue)) {
+                builder.headType(GuiItem.HeadType.SELF);
+            } else if (headValue.startsWith("player:")) {
+                builder.headType(GuiItem.HeadType.PLAYER);
+                builder.headValue(headValue.substring(7));
+            } else if (headValue.startsWith("base64:")) {
+                builder.headType(GuiItem.HeadType.BASE64);
+                builder.headValue(headValue.substring(7));
+            }
+        }
+
+        // NBT tags
+        ConfigurationSection nbtSection = section.getConfigurationSection("nbt");
+        if (nbtSection != null) {
+            Map<String, String> nbtTags = new HashMap<>();
+            for (String nbtKey : nbtSection.getKeys(false)) {
+                nbtTags.put(nbtKey, nbtSection.getString(nbtKey));
+            }
+            builder.nbtTags(nbtTags);
+        }
+
+        // Drag
+        builder.allowDrag(section.getBoolean("allow-drag", false));
+        builder.dragAction(section.getString("drag-action"));
+
+        // Cacheable
+        builder.cacheable(section.getBoolean("cacheable", true));
+
+        // Parse animations
+        List<AnimationConfig> itemAnimations = parseItemAnimations(section);
+        if (!itemAnimations.isEmpty()) {
+            builder.animations(itemAnimations);
+        }
+
+        // TODO: Parse dynamic placeholders
+
+        return builder.build();
+    }
+
+    /**
+     * Parse de tabs.
+     *
+     * <p>Formato esperado em YAML:</p>
+     * <pre>
+     * tabs:
+     *   - id: "weapons"
+     *     display-name: "&6Armas"
+     *     icon: IRON_SWORD
+     *     default: true
+     *     slots: [10,11,12,13,14,15,16]
+     *     layout:
+     *       - "xxxxxxxxx"
+     *       - "xOOOOOOOx"
+     *     items:
+     *       "10":
+     *         material: DIAMOND_SWORD
+     *         name: "&bEspada"
+     * </pre>
+     */
+    @NotNull
+    private List<TabConfig> parseTabs(@Nullable ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+
+        List<TabConfig> tabs = new ArrayList<>();
+        List<Map<?, ?>> tabsList = section.getMapList("tabs");
+
+        if (tabsList.isEmpty()) {
+            return List.of();
+        }
+
+        boolean hasDefault = false;
+
+        for (Map<?, ?> tabMap : tabsList) {
+            try {
+                String tabId = (String) tabMap.get("id");
+                if (tabId == null || tabId.isBlank()) {
+                    plugin.getLogger().warning("Tab missing 'id', skipping");
+                    continue;
+                }
+
+                Object displayNameObj = tabMap.get("display-name");
+                String displayName = displayNameObj != null ? String.valueOf(displayNameObj) : tabId;
+
+                // Parse icon material
+                Object iconObj = tabMap.get("icon");
+                String iconStr = iconObj != null ? String.valueOf(iconObj) : "PAPER";
+                Material icon;
+                try {
+                    icon = Material.valueOf(iconStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Invalid icon material: " + iconStr + " for tab " + tabId);
+                    icon = Material.PAPER;
+                }
+
+                // Parse slots
+                List<Integer> slots = new ArrayList<>();
+                Object slotsObj = tabMap.get("slots");
+                if (slotsObj instanceof List<?>) {
+                    for (Object slotObj : (List<?>) slotsObj) {
+                        if (slotObj instanceof Number) {
+                            slots.add(((Number) slotObj).intValue());
+                        }
+                    }
+                }
+
+                // Parse layout
+                List<String> layout = new ArrayList<>();
+                Object layoutObj = tabMap.get("layout");
+                if (layoutObj instanceof List<?>) {
+                    for (Object lineObj : (List<?>) layoutObj) {
+                        if (lineObj instanceof String) {
+                            layout.add((String) lineObj);
+                        }
+                    }
+                }
+
+                // Parse tab-specific items
+                List<GuiItem> tabItems = new ArrayList<>();
+                Object itemsObj = tabMap.get("items");
+                if (itemsObj instanceof Map<?, ?>) {
+                    ConfigurationSection itemsSection = toConfigSection((Map<?, ?>) itemsObj);
+                    tabItems = parseItems(itemsSection);
+                }
+
+                Object defaultObj = tabMap.get("default");
+                boolean isDefault = (defaultObj instanceof Boolean && (Boolean) defaultObj);
+                if (isDefault && hasDefault) {
+                    plugin.getLogger().warning("Multiple default tabs found. Only first will be used.");
+                    isDefault = false;
+                }
+                if (isDefault) {
+                    hasDefault = true;
+                }
+
+                TabConfig tabConfig = new TabConfig(tabId, displayName, icon, slots, layout, tabItems, isDefault);
+                tabs.add(tabConfig);
+
+                plugin.getLogger().fine("Parsed tab: " + tabId + " (default: " + isDefault + ")");
+
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "Failed to parse tab", e);
+            }
+        }
+
+        // Se nenhuma tab default, marca primeira como default
+        if (!tabs.isEmpty() && !hasDefault) {
+            TabConfig first = tabs.get(0);
+            tabs.set(0, new TabConfig(first.tabId(), first.displayName(), first.icon(),
+                    first.slots(), first.layout(), first.items(), true));
+            plugin.getLogger().fine("No default tab specified, using first tab: " + first.tabId());
+        }
+
+        return tabs;
+    }
+
+    /**
+     * Parse de pagination.
+     *
+     * <p>Formato esperado em YAML:</p>
+     * <pre>
+     * pagination:
+     *   mode: HYBRID  # NATIVE_ONLY, LAYOUT_ONLY, HYBRID
+     *   items-per-page: 21
+     *   show-navigation: true
+     *   layout:
+     *     - "xxxxxxxxx"
+     *     - "xOOOOOOOx"
+     *     - "xOOOOOOOx"
+     *     - "xxxxNxxxx"
+     *   navigation-slots:
+     *     next: 40
+     *     prev: 38
+     *   pagination-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25]
+     * </pre>
+     */
+    @Nullable
+    private PaginationConfig parsePagination(@Nullable ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+
+        // Parse mode
+        String modeStr = section.getString("mode", "HYBRID").toUpperCase();
+        PaginationConfig.PaginationMode mode;
+        try {
+            mode = PaginationConfig.PaginationMode.valueOf(modeStr);
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning("Invalid pagination mode: " + modeStr + ", defaulting to HYBRID");
+            mode = PaginationConfig.PaginationMode.HYBRID;
+        }
+
+        // Parse layout
+        List<String> layout = section.getStringList("layout");
+
+        // Validação de layout (cada linha deve ter 9 chars)
+        if (!layout.isEmpty()) {
+            for (int i = 0; i < layout.size(); i++) {
+                String line = layout.get(i);
+                if (line.length() != 9) {
+                    plugin.getLogger().warning("Invalid layout line " + i + " (expected 9 chars, got " + line.length() + "): " + line);
+                }
+            }
+        }
+
+        // Parse pagination slots
+        List<Integer> paginationSlots = new ArrayList<>();
+        if (section.contains("pagination-slots")) {
+            List<?> slotsList = section.getList("pagination-slots");
+            if (slotsList != null) {
+                for (Object obj : slotsList) {
+                    if (obj instanceof Number) {
+                        paginationSlots.add(((Number) obj).intValue());
+                    }
+                }
+            }
+        }
+
+        // Parse navigation slots (prev, next)
+        ConfigurationSection navSection = section.getConfigurationSection("navigation-slots");
+        if (navSection != null) {
+            int prevSlot = navSection.getInt("prev", -1);
+            int nextSlot = navSection.getInt("next", -1);
+
+            if (prevSlot >= 0 && nextSlot >= 0) {
+                // Add to pagination slots se não estiverem lá
+                if (!paginationSlots.contains(prevSlot)) {
+                    paginationSlots.add(prevSlot);
+                }
+                if (!paginationSlots.contains(nextSlot)) {
+                    paginationSlots.add(nextSlot);
+                }
+            }
+        }
+
+        // Items per page
+        int itemsPerPage = section.getInt("items-per-page", 9);
+
+        // Show navigation
+        boolean showNavigation = section.getBoolean("show-navigation", true);
+
+        PaginationConfig config = new PaginationConfig(mode, layout, paginationSlots, itemsPerPage, showNavigation);
+
+        plugin.getLogger().fine("Parsed pagination: mode=" + mode + ", itemsPerPage=" + itemsPerPage +
+                ", layout=" + layout.size() + " lines, slots=" + paginationSlots.size());
+
+        return config;
+    }
+
+    /**
+     * Parse de animations (global do inventário).
+     *
+     * <p>Formato YAML esperado:</p>
+     * <pre>
+     * animations:
+     *   - id: "global_pulse"
+     *     type: FRAME_BASED
+     *     interval: 10
+     *     loop: true
+     *     frames:
+     *       - material: DIAMOND
+     *         duration: 5
+     * </pre>
+     *
+     * @param section ConfigurationSection de animations
+     * @return Lista de AnimationConfig
+     */
+    @NotNull
+    private List<AnimationConfig> parseAnimations(@Nullable ConfigurationSection section) {
+        if (section == null) {
+            return List.of();
+        }
+
+        List<AnimationConfig> animations = new ArrayList<>();
+
+        // Animations podem ser lista ou mapa
+        if (section.isList("animations")) {
+            List<?> animList = section.getList("animations");
+            if (animList != null) {
+                for (Object animObj : animList) {
+                    if (animObj instanceof Map<?, ?>) {
+                        try {
+                            ConfigurationSection animSection = toConfigSection((Map<?, ?>) animObj);
+                            AnimationConfig anim = AnimationConfig.fromConfig(animSection);
+                            if (anim.isValid()) {
+                                animations.add(anim);
+                            } else {
+                                plugin.getLogger().warning("Invalid animation config (skipped): " + anim.animationId());
+                            }
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to parse animation: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+
+        if (plugin.getLogger().isLoggable(java.util.logging.Level.FINE) && !animations.isEmpty()) {
+            plugin.getLogger().fine("Parsed " + animations.size() + " global animations");
+        }
+
+        return animations;
+    }
+
+    /**
+     * Parse de animations de um item específico.
+     *
+     * <p>Formato YAML esperado:</p>
+     * <pre>
+     * items:
+     *   "13":
+     *     material: DIAMOND_SWORD
+     *     animations:
+     *       - id: "pulse"
+     *         type: FRAME_BASED
+     *         interval: 10
+     *         loop: true
+     *         frames:
+     *           - material: DIAMOND_SWORD
+     *             duration: 5
+     *             enchanted: true
+     *           - material: DIAMOND_SWORD
+     *             duration: 5
+     *             enchanted: false
+     * </pre>
+     *
+     * @param itemSection ConfigurationSection do item
+     * @return Lista de AnimationConfig
+     */
+    @NotNull
+    public List<AnimationConfig> parseItemAnimations(@NotNull ConfigurationSection itemSection) {
+        if (!itemSection.contains("animations")) {
+            return List.of();
+        }
+
+        List<AnimationConfig> animations = new ArrayList<>();
+        List<?> animList = itemSection.getList("animations");
+
+        if (animList != null) {
+            for (Object animObj : animList) {
+                if (animObj instanceof Map<?, ?>) {
+                    try {
+                        ConfigurationSection animSection = toConfigSection((Map<?, ?>) animObj);
+                        AnimationConfig anim = AnimationConfig.fromConfig(animSection);
+                        if (anim.isValid()) {
+                            animations.add(anim);
+                        } else {
+                            plugin.getLogger().warning("Invalid animation config (skipped): " + anim.animationId());
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to parse item animation: " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        return animations;
+    }
+
+    /**
+     * Parse de persistence config.
+     */
+    @NotNull
+    private InventoryConfig.PersistenceConfig parsePersistence(@Nullable ConfigurationSection section) {
+        if (section == null) {
+            return InventoryConfig.PersistenceConfig.disabled();
+        }
+
+        boolean enabled = section.getBoolean("enabled", false);
+        boolean autoSave = section.getBoolean("auto-save", true);
+        int saveInterval = section.getInt("save-interval-seconds", 30);
+
+        return new InventoryConfig.PersistenceConfig(enabled, autoSave, saveInterval);
+    }
+
+    /**
+     * Recarrega configurações.
+     */
+    public void reload() {
+        loadConfiguration();
+    }
+
+    /**
+     * Limpa cache.
+     */
+    public void clearCache() {
+        configCache.invalidateAll();
+    }
+
+    /**
+     * Verifica se inventário existe.
+     */
+    public boolean hasInventory(@NotNull String inventoryId) {
+        return inventoriesConfig.contains("inventories." + inventoryId);
+    }
+
+    /**
+     * Lista todos os IDs de inventários registrados.
+     */
+    @NotNull
+    public Set<String> getInventoryIds() {
+        ConfigurationSection section = inventoriesConfig.getConfigurationSection("inventories");
+        return section != null ? section.getKeys(false) : Set.of();
+    }
+
+    /**
+     * Converte Map para ConfigurationSection.
+     *
+     * <p>Helper para parsing de tabs/items aninhados.</p>
+     */
+    @NotNull
+    private ConfigurationSection toConfigSection(@NotNull Map<?, ?> map) {
+        org.bukkit.configuration.MemoryConfiguration memoryConfig = new org.bukkit.configuration.MemoryConfiguration();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String key = String.valueOf(entry.getKey());
+            Object value = entry.getValue();
+            memoryConfig.set(key, value);
+        }
+        return memoryConfig;
+    }
+}

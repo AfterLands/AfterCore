@@ -1,0 +1,6 @@
+prefix: "&8[&bAfterCore&8]&r "
+
+errors:
+  no-permission: "&cSem permissão."
+  player-only: "&cApenas jogadores."
+

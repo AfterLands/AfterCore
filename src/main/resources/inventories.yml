@@ -1,0 +1,114 @@
+# AfterCore Inventory Framework Configuration
+# Version: 1.0
+
+config-version: 1
+
+# Templates de itens reutilizáveis
+default-items:
+  close-button:
+    material: RED_STAINED_GLASS_PANE
+    name: "&cFechar"
+    enchanted: true
+    hide-flags: true
+    actions:
+      - "message: &7Inventário fechado."
+
+  next-page:
+    material: ARROW
+    name: "&aPróxima Página"
+    lore:
+      - "&7Página {page}/{total_pages}"
+    type: "next-page"
+
+  previous-page:
+    material: ARROW
+    name: "&ePágina Anterior"
+    lore:
+      - "&7Página {page}/{total_pages}"
+    type: "previous-page"
+
+  border-glass:
+    material: BLACK_STAINED_GLASS_PANE
+    name: " "
+    hide-flags: true
+
+# Inventários configuráveis
+inventories:
+
+  # Exemplo 1: Menu simples
+  example-simple:
+    title: "&eMenu Simples"
+    size: 3
+    items:
+      "0-8;18-26":  # Border top e bottom
+        material: BLACK_STAINED_GLASS_PANE
+        name: " "
+        hide-flags: true
+
+      "13":
+        material: DIAMOND
+        name: "&aClique aqui!"
+        lore:
+          - "&7Isso é um exemplo"
+          - "&7de inventário simples"
+        enchanted: true
+        actions:
+          - "message: &bVocê clicou no diamante!"
+          - "sound: CLICK"
+
+      "22":
+        type: "close-button"
+
+  # Exemplo 2: Menu com placeholders
+  player-stats:
+    title: "&eSeus Status - {player_name}"
+    size: 4
+    items:
+      "0-8;27-35":
+        material: GRAY_STAINED_GLASS_PANE
+        name: " "
+        hide-flags: true
+
+      "13":
+        material: PLAYER_HEAD
+        head: "self"
+        name: "&f{player_name}"
+        lore:
+          - "&7Level: &a{level}"
+          - "&7XP: &b{xp}/{max_xp}"
+          - "&7Coins: &e{coins}"
+        cacheable: false  # Não cachear (placeholders dinâmicos)
+
+      "31":
+        type: "close-button"
+
+    persistence:
+      enabled: false
+
+  # Exemplo 3: Inventário com persistência
+  storage-chest:
+    title: "&6Baú de Armazenamento"
+    size: 6
+    shared: false
+
+    items:
+      "0-8;45-53":
+        material: BROWN_STAINED_GLASS_PANE
+        name: " "
+        hide-flags: true
+
+      "9-44":
+        material: AIR
+        allow-drag: true
+        drag-action: "store_item"
+
+      "49":
+        type: "close-button"
+
+    persistence:
+      enabled: true
+      auto-save: true
+      save-interval-seconds: 30
+
+# Nota: Inventários mais complexos com tabs, paginação e animações
+# serão adicionados nas próximas fases do desenvolvimento
