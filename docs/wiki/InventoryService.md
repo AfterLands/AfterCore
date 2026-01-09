@@ -35,8 +35,8 @@ inv.openInventory(player, "main_menu", ctx);
 
 O Inventory Framework já possui documentação detalhada no repositório:
 
-- **Referência completa da API e schema YAML**: `docs/API_REFERENCE.md`
-- **11 exemplos práticos (prontos para copiar/colar)**: `docs/USAGE_EXAMPLES.md`
+- **Referência completa da API e schema YAML**: [Inventory Framework API](Inventory-Framework-API)
+- **11 exemplos práticos (prontos para copiar/colar)**: [Inventory Framework Examples](Inventory-Framework-Examples)
 - **Guia de migração (ABA → AfterCore)**: `docs/MIGRATION_GUIDE.md`
 
 ### Integrações opcionais

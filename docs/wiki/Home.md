@@ -1,5 +1,7 @@
 ## AfterCore Wiki
 
+**Última atualização:** 08/01/2026 - AfterCore v1.0.1
+
 AfterCore é um **plugin-biblioteca** (dependency plugin) para o ecossistema AfterLands em **Spigot/Paper 1.8.8** com **Java 21**. Ele fornece infraestrutura compartilhada (DB async, actions, conditions, inventories, métricas, diagnósticos, etc.) para reduzir duplicação entre plugins e manter **20 TPS** em alta concorrência.
 
 ### Regras de ouro
@@ -11,35 +13,36 @@ AfterCore é um **plugin-biblioteca** (dependency plugin) para o ecossistema Aft
 ### Índice (Wiki)
 
 - **Comece aqui**
-  - [Getting Started](Getting-Started.md)
-  - [Visão geral da API pública](Public-API-Index.md)
-  - [Lista completa de tipos `public`](Public-API-Complete-List.md)
-  - [Threading & boas práticas](Threading-and-Performance.md)
+  - [Getting Started](Getting-Started)
+  - [Visão geral da API pública](Public-API-Index)
+  - [Lista completa de tipos `public`](Public-API-Complete-List)
+  - [Threading & boas práticas](Threading-and-Performance)
 
 - **API principal**
-  - [`AfterCore` + `AfterCoreAPI`](AfterCoreAPI.md)
+  - [`AfterCore` + `AfterCoreAPI`](AfterCoreAPI)
 
 - **Serviços**
-  - [`SchedulerService`](SchedulerService.md)
-  - [`SqlService`](SqlService.md)
-  - [`ConditionService`](ConditionService.md)
-  - [`ActionService`](ActionService.md)
-  - [`InventoryService` (Inventory Framework)](InventoryService.md)
-  - [`ProtocolService`](ProtocolService.md)
-  - [`DiagnosticsService`](DiagnosticsService.md)
-  - [`MetricsService`](MetricsService.md)
-  - [`ConfigService` + `MessageService`](Config-and-Messages.md)
-  - [`CommandService`](CommandService.md)
+  - [`SchedulerService`](SchedulerService)
+  - [`SqlService`](SqlService)
+  - [`ConditionService`](ConditionService)
+  - [`ActionService`](ActionService)
+  - [`InventoryService` (Inventory Framework)](InventoryService)
+  - [`ProtocolService`](ProtocolService)
+  - [`DiagnosticsService`](DiagnosticsService)
+  - [`MetricsService`](MetricsService)
+  - [`ConfigService` + `MessageService`](Config-and-Messages)
+  - [`CommandService`](CommandService)
 
 - **Utilitários**
-  - [`CoreResult<T>` e erros](CoreResult.md)
-  - [Retry/Backoff](Retry.md)
-  - [Rate limiting / cooldowns](Rate-Limiting.md)
-  - [Strings e utilitários espaciais](Utilities.md)
+  - [`CoreResult<T>` e erros](CoreResult)
+  - [Retry/Backoff](Retry)
+  - [Rate limiting / cooldowns](Rate-Limiting)
+  - [Strings e utilitários espaciais](Utilities)
 
-### Links úteis no repositório
+### Links úteis
 
-- **Inventário (docs completas)**: `docs/API_REFERENCE.md` e `docs/USAGE_EXAMPLES.md`
-- **Migração**: `docs/MIGRATION_GUIDE.md` e `docs/migration/`
+- **Inventory Framework**:
+    - [Exemplos Práticos](Inventory-Framework-Examples)
+    - [Referência da API](Inventory-Framework-API)
+- **Migração**: `docs/MIGRATION_GUIDE.md`
 - **Config default**: `src/main/resources/config.yml` e `src/main/resources/messages.yml`
-

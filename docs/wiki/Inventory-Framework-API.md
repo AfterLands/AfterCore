@@ -403,52 +403,6 @@ lore:
 
 ---
 
-## Dynamic Titles
-
-AfterCore suporta títulos dinâmicos via ProtocolLib (opcional).
-
-### Configuration
-
-```yaml
-inventory_id:
-  title: "&aTitle with %placeholder%"
-  title_update_interval: 20  # Atualizar a cada 20 ticks (1 segundo)
-  # 0 = disabled (padrão)
-```
-
-### API Programática
-
-```java
-InventoryViewHolder holder = InventoryViewHolder.get(player);
-if (holder != null) {
-    holder.updateTitle("&eNovo Título!");  // Atualiza via packet
-}
-```
-
-### Graceful Degradation
-
-- **Com ProtocolLib**: Atualiza via `PacketPlayOutOpenWindow` (smooth, sem piscar)
-- **Sem ProtocolLib**: Reabre inventário (menos smooth, mas funciona)
-
-### Performance
-
-- **TPS Impact**: ~0.1ms/tick por inventário com título dinâmico
-- **Packet Overhead**: ~0.05ms por update
-- **Cache**: Títulos iguais não são reenviados
-
-### Verificar Disponibilidade
-
-```java
-// Via DiagnosticsService
-DiagnosticsSnapshot snapshot = AfterCore.get().diagnostics().captureSnapshot();
-boolean protocolLibAvailable = snapshot.dependencies().containsKey("ProtocolLib");
-
-// Via comando
-/acore status  // Mostra "✓ ProtocolLib X.X.X" se disponível
-```
-
----
-
 ## Error Handling
 
 ### CoreResult Pattern
@@ -541,8 +495,3 @@ actions.registerHandler("my_action", (player, args) -> {
 ```java
 // Futuro: API para custom item compilation
 ```
-
----
-
-**Última Atualização**: 2026-01-08
-**Versão**: 1.0.1

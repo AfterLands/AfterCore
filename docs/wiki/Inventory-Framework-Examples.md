@@ -960,7 +960,6 @@ public class VaultListener implements Listener {
 Criar ações customizadas para lógica específica do seu plugin.
 
 ### Registrar Action Handlers
-
 ```java
 import com.afterlands.core.actions.ActionService;
 
@@ -1017,7 +1016,6 @@ public class MyPlugin extends JavaPlugin {
 ```
 
 ### Usar Actions no YAML
-
 ```yaml
 inventories:
   rewards_menu:
@@ -1056,7 +1054,6 @@ inventories:
 ## 9. Performance Tips - Otimizações
 
 ### Tip 1: Use Cache Wisely
-
 ```java
 // MAL: Recompilar item toda vez
 for (Player p : Bukkit.getOnlinePlayers()) {
@@ -1075,7 +1072,6 @@ for (Player p : Bukkit.getOnlinePlayers()) {
 ```
 
 ### Tip 2: Minimize Placeholders
-
 ```yaml
 # MAL: Muitos placeholders únicos
 items:
@@ -1093,7 +1089,6 @@ items:
 ```
 
 ### Tip 3: Paginação HYBRID para Listas Grandes
-
 ```yaml
 # MAL: LAYOUT_ONLY com 1000 itens
 pagination:
@@ -1108,7 +1103,6 @@ pagination:
 ```
 
 ### Tip 4: Batch Updates
-
 ```java
 // MAL: Refresh para cada item
 for (int i = 0; i < 100; i++) {
@@ -1124,7 +1118,6 @@ inv.refreshInventory(player);  // 1 refresh apenas
 ```
 
 ### Tip 5: Async Database Operations
-
 ```java
 // MAL: Bloqueia main thread
 InventoryState state = inv.loadState(playerId, "vault").join();  // NUNCA!
@@ -1142,7 +1135,6 @@ inv.loadState(playerId, "vault").thenAccept(state -> {
 ## 10. Troubleshooting - Problemas Comuns
 
 ### Problema 1: Inventário não abre
-
 **Sintoma**: Comando executado, mas nada acontece.
 
 **Debug**:
@@ -1161,7 +1153,6 @@ inv.openInventory(player, "menu", ctx);
 ---
 
 ### Problema 2: Placeholders não substituem
-
 **Sintoma**: `%player_name%` aparece literal.
 
 **Causas**:
@@ -1179,7 +1170,6 @@ InventoryContext ctx = InventoryContext.builder(player)
 ---
 
 ### Problema 3: Memory Leak
-
 **Sintoma**: Memória cresce constantemente.
 
 **Debug**:
@@ -1198,7 +1188,6 @@ InventoryContext ctx = InventoryContext.builder(player)
 ---
 
 ### Problema 4: TPS Drop
-
 **Sintoma**: TPS cai ao abrir inventários.
 
 **Debug**:
@@ -1218,7 +1207,6 @@ InventoryContext ctx = InventoryContext.builder(player)
 ---
 
 ### Problema 5: Items Duplicados
-
 **Sintoma**: Player consegue duplicar itens com drag.
 
 **Solução**:
@@ -1230,7 +1218,6 @@ drag_settings:
 ---
 
 ### Problema 6: Estado não persiste
-
 **Sintoma**: Itens somem ao reabrir.
 
 **Verificar**:
@@ -1344,14 +1331,3 @@ private String getTPS() {
 - Solução: Instalar ProtocolLib para updates smooth via packets
 
 ---
-
-## Recursos Adicionais
-
-- **API Reference**: [API_REFERENCE.md](API_REFERENCE.md)
-- **Migration Guide**: [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)
-- **Issue Tracker**: https://github.com/AfterLands/AfterCore/issues
-
----
-
-**Última Atualização**: 2026-01-08
-**Versão**: 1.0.1
