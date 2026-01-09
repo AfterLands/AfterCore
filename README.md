@@ -20,11 +20,11 @@
 
 ## 📚 Documentation
 
-The complete documentation is available in our **[GitHub Wiki](docs/wiki/Home)**.
+The complete documentation is available in our **[GitHub Wiki](https://github.com/AfterLands/AfterCore/wiki)**.
 
-*   **[Getting Started](docs/wiki/Getting-Started)**
-*   **[Inventory Framework](docs/wiki/InventoryService)**
-*   **[Core APIs](docs/wiki/AfterCoreAPI)**
+*   **[Getting Started](https://github.com/AfterLands/AfterCore/wiki/Getting-Started)**
+*   **[Inventory Framework](https://github.com/AfterLands/AfterCore/wiki/InventoryService)**
+*   **[Core APIs](https://github.com/AfterLands/AfterCore/wiki/AfterCoreAPI)**
 
 ## ✨ Key Features
 
@@ -33,7 +33,7 @@ A complete, high-performance GUI system.
 *   **YAML Configuration**: Create menus without code.
 *   **Performance**: Hybrid pagination (35x faster), smart caching (Caffeine).
 *   **Features**: Animations, Drag-and-drop, Shared Inventories (Sessions).
-*   **[Examples](docs/wiki/Inventory-Framework-Examples)** | **[API Reference](docs/wiki/Inventory-Framework-API)**
+*   **[Examples](https://github.com/AfterLands/AfterCore/wiki/Inventory-Framework-Examples)** | **[API Reference](https://github.com/AfterLands/AfterCore/wiki/Inventory-Framework-API)**
 
 ### 🔧 Core Services
 *   **Async Database**: HikariCP pooling for MySQL/SQLite.
