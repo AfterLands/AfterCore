@@ -32,7 +32,8 @@ The complete documentation is available in our **[GitHub Wiki](https://github.co
 A complete, high-performance GUI system.
 *   **YAML Configuration**: Create menus without code.
 *   **Performance**: Hybrid pagination (35x faster), smart caching (Caffeine).
-*   **Features**: Animations, Drag-and-drop, Shared Inventories (Sessions).
+*   **Features**: Animations, Drag-and-drop, Shared Inventories, Dynamic Titles.
+*   **Click Handlers**: Support for different click types (LEFT, RIGHT, SHIFT, MIDDLE, etc.) via YAML or Java API.
 *   **[Examples](https://github.com/AfterLands/AfterCore/wiki/Inventory-Framework-Examples)** | **[API Reference](https://github.com/AfterLands/AfterCore/wiki/Inventory-Framework-API)**
 
 ### 🔧 Core Services
@@ -59,7 +60,7 @@ mvn clean package
 <dependency>
     <groupId>com.afterlands</groupId>
     <artifactId>aftercore</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <scope>provided</scope>
 </dependency>
 ```

@@ -5,6 +5,44 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-01-08
+
+### Added
+- **Click Type Handlers**: Suporte para diferentes tipos de click em inventários (similar ao inventory-framework do DevNathan)
+  - `ClickContext` record com informações completas do click
+  - `ClickHandler` functional interface para handlers programáticos com lambdas
+  - `ClickHandlers` container para handlers por tipo de click (EnumMap O(1) lookup)
+  - Suporte YAML: `on_left_click`, `on_right_click`, `on_shift_left_click`, `on_shift_right_click`, `on_middle_click`, `on_double_click`, `on_drop`, `on_control_drop`, `on_number_key`
+  - Fallback para `actions` se tipo específico não definido
+  - API programática com métodos fluentes: `.onLeftClick()`, `.onRightClick()`, etc.
+  - Navigation helpers em ClickContext: `nextPage()`, `previousPage()`, `switchTab()`, `close()`, `refresh()`
+  - Message helper: `sendMessage()` com color codes automáticos
+  - Convenience methods: `isLeftClick()`, `isRightClick()`, `isShiftClick()`, etc.
+
+### Changed
+- `GuiItem` agora inclui campo `clickHandlers` (ClickHandlers)
+- `GuiItem.Builder` com métodos para configurar click handlers (programáticos e YAML-based)
+- `InventoryConfigManager` agora parseia campos `on_*_click` do YAML
+- `InventoryActionHandler.handleClick()` agora recebe `InventoryViewHolder` como parâmetro
+- `InventoryActionHandler` processa handlers programáticos antes de YAML actions
+- `InventoryViewHolder.onInventoryClick()` passa `this` para actionHandler
+
+### Performance
+- **Zero overhead** se não usar handlers por tipo (fallback direto para `actions`)
+- **EnumMap** para O(1) lookup por ClickType (vs switch/case)
+- **ClickContext** é record imutável (zero custo de cópia)
+- Handlers programáticos evitam parsing de actions (mais rápido que YAML)
+
+### Compatibility
+- **100% backwards compatible**: Configurações antigas com apenas `actions:` continuam funcionando
+- Graceful fallback: se `on_*_click` não definido, usa `actions` padrão
+
+### Documentation
+- Novo exemplo "Click Type Handlers" em `Inventory-Framework-Examples.md` (exemplo 12)
+- Tabela completa de tipos de click suportados
+- Exemplos de use cases: Shop Buy/Sell, Menu de Navegação, Info vs Action
+- Troubleshooting guide para click handlers
+
 ## [1.0.1] - 2026-01-08
 
 ### Added

@@ -3,10 +3,14 @@ package com.afterlands.core.inventory.action;
 import com.afterlands.core.actions.ActionService;
 import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.inventory.InventoryContext;
+import com.afterlands.core.inventory.click.ClickContext;
+import com.afterlands.core.inventory.click.ClickHandler;
+import com.afterlands.core.inventory.click.ClickHandlers;
 import com.afterlands.core.inventory.item.GuiItem;
 import com.afterlands.core.inventory.item.PlaceholderResolver;
 import com.afterlands.core.inventory.view.InventoryViewHolder;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
 import java.util.List;
@@ -98,30 +102,49 @@ public class InventoryActionHandler {
     }
 
     /**
-     * Processa click em item de inventário.
+     * Processa click em item de inventário com suporte a tipos de click.
      *
      * <p>IMPORTANTE: Este método sempre roda na main thread (garantido pelo Bukkit).
      *
      * @param event InventoryClickEvent do Bukkit
      * @param item GuiItem configurado
      * @param context InventoryContext do player
+     * @param holder InventoryViewHolder do inventário
      */
-    public void handleClick(InventoryClickEvent event, GuiItem item, InventoryContext context) {
+    public void handleClick(InventoryClickEvent event, GuiItem item, InventoryContext context, InventoryViewHolder holder) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
 
-        List<String> actions = item.getActions();
-        if (actions == null || actions.isEmpty()) {
+        ClickType clickType = event.getClick();
+        ClickHandlers handlers = item.getClickHandlers();
+
+        // Criar ClickContext
+        ClickContext clickContext = ClickContext.from(event, holder, item, context);
+
+        // 1. Tentar handler programático primeiro
+        ClickHandler handler = handlers.getHandler(clickType);
+        if (handler != null) {
+            try {
+                handler.handle(clickContext);
+                return;
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Click handler threw exception for player " + player.getName(), e);
+                return;
+            }
+        }
+
+        // 2. Executar actions para o tipo de click
+        List<String> actions = handlers.getActions(clickType);
+        if (actions.isEmpty()) {
             return;
         }
 
         if (debug) {
-            logger.info("[InventoryAction] Handling click for player " + player.getName()
+            logger.info("[InventoryAction] Handling " + clickType + " for player " + player.getName()
                 + " with " + actions.size() + " actions");
         }
 
-        // Execute actions (async quando possível)
         executeActions(actions, player, context)
             .exceptionally(ex -> {
                 logger.log(Level.WARNING, "Failed to execute actions for player " + player.getName(), ex);

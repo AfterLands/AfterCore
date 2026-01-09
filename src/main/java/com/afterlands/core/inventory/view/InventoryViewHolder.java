@@ -625,8 +625,8 @@ public class InventoryViewHolder implements Listener {
         if (guiItem != null) {
             event.setCancelled(true);
 
-            // Execute actions
-            actionHandler.handleClick(event, guiItem, context);
+            // Execute actions with click type support
+            actionHandler.handleClick(event, guiItem, context, this);
         }
     }
 

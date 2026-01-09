@@ -2,6 +2,8 @@ package com.afterlands.core.inventory.item;
 
 import com.afterlands.core.inventory.InventoryContext;
 import com.afterlands.core.inventory.animation.AnimationConfig;
+import com.afterlands.core.inventory.click.ClickHandler;
+import com.afterlands.core.inventory.click.ClickHandlers;
 //import de.tr7zw.nbtapi.NBTItem; // TODO: Fase 2 - NBTAPI integration
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -52,6 +54,7 @@ public class GuiItem {
     private final boolean cacheable;
     private final List<String> dynamicPlaceholders;
     private final int amount;
+    private final ClickHandlers clickHandlers;
 
     private GuiItem(Builder builder) {
         this.slot = builder.slot;
@@ -74,6 +77,7 @@ public class GuiItem {
         this.cacheable = builder.cacheable;
         this.dynamicPlaceholders = List.copyOf(builder.dynamicPlaceholders);
         this.amount = builder.amount;
+        this.clickHandlers = builder.clickHandlers;
     }
 
     /**
@@ -264,6 +268,32 @@ public class GuiItem {
     }
 
     /**
+     * Obtém os handlers de click configurados.
+     *
+     * <p>Se clickHandlers não foi definido explicitamente, retorna
+     * ClickHandlers com as actions default (compatibilidade).</p>
+     *
+     * @return ClickHandlers nunca null
+     */
+    @NotNull
+    public ClickHandlers getClickHandlers() {
+        if (clickHandlers != null) {
+            return clickHandlers;
+        }
+        // Fallback: criar ClickHandlers com actions default (compatibilidade)
+        return ClickHandlers.ofDefault(actions);
+    }
+
+    /**
+     * Verifica se possui click handlers configurados.
+     *
+     * @return true se tem clickHandlers ou actions
+     */
+    public boolean hasClickHandlers() {
+        return clickHandlers != null || (actions != null && !actions.isEmpty());
+    }
+
+    /**
      * Head texture type.
      */
     public enum HeadType {
@@ -296,6 +326,8 @@ public class GuiItem {
         private boolean cacheable = true;
         private List<String> dynamicPlaceholders = new ArrayList<>();
         private int amount = 1;
+        private ClickHandlers clickHandlers = null;
+        private ClickHandlers.Builder clickHandlersBuilder = null;
 
         public Builder slot(int slot) {
             this.slot = slot;
@@ -422,7 +454,142 @@ public class GuiItem {
             return this;
         }
 
+        // ========== Click Handlers ==========
+
+        /**
+         * Define ClickHandlers diretamente (para uso com YAML parser).
+         */
+        public Builder clickHandlers(ClickHandlers handlers) {
+            this.clickHandlers = handlers;
+            return this;
+        }
+
+        /**
+         * Garante que o clickHandlersBuilder está inicializado.
+         */
+        private void ensureClickHandlersBuilder() {
+            if (clickHandlersBuilder == null) {
+                clickHandlersBuilder = ClickHandlers.builder();
+            }
+        }
+
+        // Métodos para API programática (handlers com lambdas)
+
+        public Builder onLeftClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onLeftClick(handler);
+            return this;
+        }
+
+        public Builder onRightClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onRightClick(handler);
+            return this;
+        }
+
+        public Builder onShiftLeftClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onShiftLeftClick(handler);
+            return this;
+        }
+
+        public Builder onShiftRightClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onShiftRightClick(handler);
+            return this;
+        }
+
+        public Builder onMiddleClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onMiddleClick(handler);
+            return this;
+        }
+
+        public Builder onDoubleClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onDoubleClick(handler);
+            return this;
+        }
+
+        public Builder onDrop(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onDrop(handler);
+            return this;
+        }
+
+        public Builder onControlDrop(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onControlDrop(handler);
+            return this;
+        }
+
+        public Builder onNumberKey(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onNumberKey(handler);
+            return this;
+        }
+
+        public Builder onClick(ClickHandler handler) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.defaultHandler(handler);
+            return this;
+        }
+
+        // Métodos para API com actions (List<String>) - útil para testes
+
+        public Builder onLeftClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onLeftClick(actions);
+            return this;
+        }
+
+        public Builder onRightClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onRightClick(actions);
+            return this;
+        }
+
+        public Builder onShiftLeftClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onShiftLeftClick(actions);
+            return this;
+        }
+
+        public Builder onShiftRightClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onShiftRightClick(actions);
+            return this;
+        }
+
+        public Builder onMiddleClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onMiddleClick(actions);
+            return this;
+        }
+
+        public Builder onDoubleClick(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onDoubleClick(actions);
+            return this;
+        }
+
+        public Builder onDrop(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onDrop(actions);
+            return this;
+        }
+
+        public Builder onNumberKey(List<String> actions) {
+            ensureClickHandlersBuilder();
+            clickHandlersBuilder.onNumberKey(actions);
+            return this;
+        }
+
         public GuiItem build() {
+            // Se usou clickHandlersBuilder, build it
+            if (clickHandlersBuilder != null && clickHandlers == null) {
+                clickHandlers = clickHandlersBuilder.build();
+            }
             return new GuiItem(this);
         }
     }

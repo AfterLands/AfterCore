@@ -3,14 +3,14 @@
 ### Objetivo
 Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library, reduzindo duplicação entre plugins e padronizando threading/caching para suportar alta concorrência.
 
-### Status Atual: v1.0.1 (2026-01-08)
+### Status Atual: v1.0.2 (2026-01-08)
 **Production Ready** ✅
 
 - 10 Core Services implementados
-- Inventory Framework completo (8 fases, 98h)
+- Inventory Framework completo (9 fases, 101h)
 - Performance targets atingidos/superados
-- 17,000+ palavras de documentação
-- Build: AfterCore-1.0.1.jar (19 MB)
+- 18,000+ palavras de documentação
+- Build: AfterCore-1.0.2.jar (19 MB)
 
 ---
 
@@ -105,7 +105,7 @@ Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library,
 ---
 
 ## Release 1.0 — Inventory Framework ✅ COMPLETO
-**Status:** Concluído em v1.0.1 (2026-01-08). Framework completo para inventários/GUIs customizados.
+**Status:** Concluído em v1.0.2 (2026-01-08). Framework completo para inventários/GUIs customizados.
 
 ### Fase 1: Core Infrastructure (8h) ✅
 - [x] `InventoryService` API pública
@@ -179,6 +179,18 @@ Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library,
 - [x] Documentação completa + exemplos
 - [x] Version bump to 1.0.1
 
+### Fase 9: Click Type Handlers (3h) ✅
+- [x] `ClickContext` record - Contexto imutável com info completa do click
+- [x] `ClickHandler` functional interface - Suporte a lambdas
+- [x] `ClickHandlers` container - EnumMap para O(1) lookup por ClickType
+- [x] YAML support: `on_left_click`, `on_right_click`, `on_shift_left_click`, etc.
+- [x] Java API: `.onLeftClick(ctx -> ...)`, `.onRightClick(ctx -> ...)`, etc.
+- [x] 9 tipos de click suportados (LEFT, RIGHT, SHIFT_LEFT, SHIFT_RIGHT, MIDDLE, DOUBLE_CLICK, DROP, CONTROL_DROP, NUMBER_KEY)
+- [x] Fallback para `actions` default (100% backwards compatible)
+- [x] Navigation helpers no ClickContext (`nextPage()`, `switchTab()`, `close()`)
+- [x] Documentação + exemplos
+- [x] Version bump to 1.0.2
+
 ### Performance Metrics (Target ✅ Atingido)
 - **TPS**: 27ms/50ms (54%) @ 500 CCU ✅ (target: 20 TPS)
 - **Latência**: ~25ms média ✅ (target: <50ms)
@@ -200,6 +212,7 @@ Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library,
 - ✅ NBT customization (NBTAPI shaded)
 - ✅ Skull textures (base64, player name, "self")
 - ✅ Dynamic titles via packets (ProtocolLib)
+- ✅ Click type handlers (LEFT, RIGHT, SHIFT, MIDDLE, etc.) - YAML + Java API
 
 ### Critérios de aceite ✅
 - Framework completo e production-ready ✅
@@ -241,23 +254,25 @@ Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library,
 
 ---
 
-## Estatísticas do Projeto (v1.0.1)
+## Estatísticas do Projeto (v1.0.2)
 
 ### Linhas de Código
 - **Core Services**: ~8,000 LOC
-- **Inventory Framework**: ~7,000 LOC
+- **Inventory Framework**: ~7,500 LOC
+- **Click System**: ~500 LOC
 - **Tests & Utils**: ~2,000 LOC
-- **Total**: ~17,000 LOC
+- **Total**: ~18,000 LOC
 
 ### Documentação
 - **MIGRATION_GUIDE.md**: 5,500 palavras
-- **USAGE_EXAMPLES.md**: 8,000 palavras
-- **API_REFERENCE.md**: 3,500 palavras
-- **Total**: 17,000+ palavras
+- **USAGE_EXAMPLES.md**: 8,500 palavras
+- **API_REFERENCE.md**: 4,000 palavras
+- **Total**: 18,000+ palavras
 
 ### Build
 - **JAR Size**: 19 MB (com dependências shaded)
 - **Compile Time**: ~11 segundos
+- **Java Files**: 122 classes compiladas
 - **Dependencies Shaded**: HikariCP, Caffeine, MySQL Connector, NBTAPI, Gson
 
 ### Performance
@@ -265,3 +280,4 @@ Centralizar infraestrutura comum do ecossistema AfterLands em um plugin library,
 - **Memory Footprint**: ~70MB @ 500 CCU
 - **Cache Hit Rate**: 80-90%
 - **DB Query Latency**: 2-5ms average
+- **Click Handler Lookup**: O(1) via EnumMap

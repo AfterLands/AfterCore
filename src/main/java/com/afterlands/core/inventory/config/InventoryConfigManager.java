@@ -3,6 +3,7 @@ package com.afterlands.core.inventory.config;
 import com.afterlands.core.config.ConfigService;
 import com.afterlands.core.inventory.InventoryConfig;
 import com.afterlands.core.inventory.animation.AnimationConfig;
+import com.afterlands.core.inventory.click.ClickHandlers;
 import com.afterlands.core.inventory.item.GuiItem;
 import com.afterlands.core.inventory.pagination.PaginationConfig;
 import com.afterlands.core.inventory.tab.TabConfig;
@@ -279,6 +280,59 @@ public class InventoryConfigManager {
         // Actions
         if (section.contains("actions")) {
             builder.actions(section.getStringList("actions"));
+        }
+
+        // Click handlers por tipo
+        ClickHandlers.Builder clickBuilder = ClickHandlers.builder();
+        boolean hasClickHandlers = false;
+
+        // Default actions (compatibilidade)
+        if (section.contains("actions")) {
+            clickBuilder.defaultActions(section.getStringList("actions"));
+            hasClickHandlers = true;
+        }
+
+        // Actions por tipo de click
+        if (section.contains("on_left_click")) {
+            clickBuilder.onLeftClick(section.getStringList("on_left_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_right_click")) {
+            clickBuilder.onRightClick(section.getStringList("on_right_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_shift_left_click")) {
+            clickBuilder.onShiftLeftClick(section.getStringList("on_shift_left_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_shift_right_click")) {
+            clickBuilder.onShiftRightClick(section.getStringList("on_shift_right_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_middle_click")) {
+            clickBuilder.onMiddleClick(section.getStringList("on_middle_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_double_click")) {
+            clickBuilder.onDoubleClick(section.getStringList("on_double_click"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_drop")) {
+            clickBuilder.onDrop(section.getStringList("on_drop"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_control_drop")) {
+            clickBuilder.onControlDrop(section.getStringList("on_control_drop"));
+            hasClickHandlers = true;
+        }
+        if (section.contains("on_number_key")) {
+            clickBuilder.onNumberKey(section.getStringList("on_number_key"));
+            hasClickHandlers = true;
+        }
+
+        // Se tem click handlers, build e adiciona ao item
+        if (hasClickHandlers) {
+            builder.clickHandlers(clickBuilder.build());
         }
 
         // Head

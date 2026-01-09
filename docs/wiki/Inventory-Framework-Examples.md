@@ -1,6 +1,6 @@
 # AfterCore Inventory Framework - Exemplos de Uso
 
-Este documento contém 11 exemplos práticos e prontos para uso do Inventory Framework.
+Este documento contém 12 exemplos práticos e prontos para uso do Inventory Framework.
 
 ## Índice
 
@@ -15,6 +15,7 @@ Este documento contém 11 exemplos práticos e prontos para uso do Inventory Fra
 9. [Performance Tips - Otimizações](#9-performance-tips---otimizações)
 10. [Troubleshooting - Problemas Comuns](#10-troubleshooting---problemas-comuns)
 11. [Dynamic Titles with Placeholders](#11-dynamic-titles-with-placeholders)
+12. [Click Type Handlers - Diferentes Tipos de Click](#12-click-type-handlers---diferentes-tipos-de-click)
 
 ---
 
@@ -1329,5 +1330,287 @@ private String getTPS() {
 **Título pisca ao atualizar?**
 - Causa: ProtocolLib não disponível (fallback reabre inventário)
 - Solução: Instalar ProtocolLib para updates smooth via packets
+
+---
+
+## 12. Click Type Handlers - Diferentes Tipos de Click
+
+### Objetivo
+Executar actions diferentes baseadas no tipo de click (esquerdo, direito, shift+click, etc.), similar ao inventory-framework do DevNathan.
+
+### YAML (plugins/AfterCore/inventories.yml)
+```yaml
+config-version: 1
+
+inventories:
+  shop_menu:
+    title: "&aShop"
+    size: 27
+
+    items:
+      diamond_item:
+        slot: 13
+        material: DIAMOND
+        name: "&bDiamond"
+        lore:
+          - "&7Left click: Buy 1"
+          - "&7Right click: Sell 1"
+          - "&7Shift+Left: Buy stack"
+          - "&7Shift+Right: Sell all"
+          - "&7Middle click: Item info"
+
+        # Actions por tipo de click
+        on_left_click:
+          - "sound: UI_BUTTON_CLICK"
+          - "message: &aBought 1 diamond for $100"
+          - "console: eco take %player_name% 100"
+          - "console: give %player_name% diamond 1"
+
+        on_right_click:
+          - "sound: UI_BUTTON_CLICK"
+          - "message: &eSold 1 diamond for $80"
+          - "console: clear %player_name% diamond 1"
+          - "console: eco give %player_name% 80"
+
+        on_shift_left_click:
+          - "sound: ENTITY_PLAYER_LEVELUP"
+          - "message: &aBought 64 diamonds for $6400"
+          - "console: eco take %player_name% 6400"
+          - "console: give %player_name% diamond 64"
+
+        on_shift_right_click:
+          - "sound: ENTITY_EXPERIENCE_ORB_PICKUP"
+          - "message: &eSold all diamonds!"
+          - "console: clearall %player_name% diamond"
+          - "console: eco give %player_name% %diamonds_total_value%"
+
+        on_middle_click:
+          - "message: &7=== Diamond Info ==="
+          - "message: &7Buy price: $100 each"
+          - "message: &7Sell price: $80 each"
+          - "message: &7Stock: Unlimited"
+
+        # Fallback para outros tipos de click (opcional)
+        actions:
+          - "message: &cUse left/right click to buy/sell!"
+
+      gold_item:
+        slot: 14
+        material: GOLD_INGOT
+        name: "&6Gold Ingot"
+        lore:
+          - "&7Click to buy/sell"
+
+        on_left_click:
+          - "message: &aBought 1 gold for $50"
+
+        on_right_click:
+          - "message: &eSold 1 gold for $40"
+
+        # Se não definir actions, outros clicks não fazem nada
+```
+
+### Java API (Programmatic)
+```java
+import com.afterlands.core.inventory.click.ClickContext;
+import com.afterlands.core.inventory.item.GuiItem;
+import org.bukkit.Material;
+
+public void createShopItem() {
+    GuiItem shopItem = new GuiItem.Builder()
+        .slot(13)
+        .material(Material.DIAMOND)
+        .name("&bDiamond")
+        .lore(Arrays.asList(
+            "&7Left click: Buy 1",
+            "&7Right click: Sell 1",
+            "&7Shift+Left: Bulk buy"
+        ))
+        // Handlers programáticos com lambdas
+        .onLeftClick(ctx -> {
+            Player player = ctx.player();
+
+            // Lógica de compra
+            if (hasEnoughMoney(player, 100)) {
+                takeMoney(player, 100);
+                player.getInventory().addItem(new ItemStack(Material.DIAMOND));
+                ctx.sendMessage("&aBought 1 diamond!");
+            } else {
+                ctx.sendMessage("&cNot enough money!");
+            }
+        })
+        .onRightClick(ctx -> {
+            Player player = ctx.player();
+
+            // Lógica de venda
+            if (player.getInventory().contains(Material.DIAMOND)) {
+                player.getInventory().removeItem(new ItemStack(Material.DIAMOND));
+                giveMoney(player, 80);
+                ctx.sendMessage("&eSold 1 diamond!");
+            } else {
+                ctx.sendMessage("&cYou don't have any diamonds!");
+            }
+        })
+        .onShiftLeftClick(ctx -> {
+            ctx.sendMessage("&aBulk buy mode!");
+            ctx.holder().switchTab("bulk_buy");
+        })
+        .onMiddleClick(ctx -> {
+            ctx.sendMessage("&7=== Diamond Info ===");
+            ctx.sendMessage("&7Price: $100 buy / $80 sell");
+        })
+        // Fallback handler para outros tipos de click
+        .onClick(ctx -> {
+            ctx.sendMessage("&cUse left or right click!");
+        })
+        .build();
+}
+```
+
+### ClickContext API
+O `ClickContext` fornece acesso completo ao click:
+
+```java
+.onLeftClick(ctx -> {
+    // Informações do click
+    Player player = ctx.player();
+    ClickType type = ctx.clickType();
+    int slot = ctx.slot();
+    ItemStack cursor = ctx.cursor();
+    ItemStack currentItem = ctx.currentItem();
+
+    // Convenience methods
+    boolean isShift = ctx.isShiftClick();
+    boolean isLeft = ctx.isLeftClick();
+    boolean isRight = ctx.isRightClick();
+
+    // Navigation helpers
+    ctx.nextPage();
+    ctx.previousPage();
+    ctx.switchTab("weapons");
+    ctx.close();
+    ctx.refresh();
+
+    // Message helper (color codes automaticamente)
+    ctx.sendMessage("&aHello!");
+
+    // Access to holder and context
+    InventoryViewHolder holder = ctx.holder();
+    InventoryContext invCtx = ctx.inventoryContext();
+
+    // Acesso ao GuiItem e InventoryClickEvent original
+    GuiItem item = ctx.item();
+    InventoryClickEvent event = ctx.event();
+});
+```
+
+### Tipos de Click Suportados
+
+| YAML Key | ClickType | Descrição |
+|----------|-----------|-----------|
+| `on_left_click` | LEFT | Click esquerdo |
+| `on_right_click` | RIGHT | Click direito |
+| `on_shift_left_click` | SHIFT_LEFT | Shift + Click esquerdo |
+| `on_shift_right_click` | SHIFT_RIGHT | Shift + Click direito |
+| `on_middle_click` | MIDDLE | Click do meio (roda) |
+| `on_double_click` | DOUBLE_CLICK | Double click esquerdo |
+| `on_drop` | DROP | Tecla Q |
+| `on_control_drop` | CONTROL_DROP | Ctrl + Q |
+| `on_number_key` | NUMBER_KEY | Teclas 1-9 (hotbar) |
+| `actions` | (fallback) | Qualquer outro click |
+
+### Prioridade de Execução
+
+1. **Handler programático** (Java lambda) - executado primeiro
+2. **Actions YAML** por tipo de click - executado se não tem handler
+3. **Actions default** (`actions:`) - fallback se tipo não definido
+
+```java
+// Exemplo de prioridade
+GuiItem item = new GuiItem.Builder()
+    .onLeftClick(ctx -> {
+        // 1. Este handler tem prioridade (programático)
+        ctx.sendMessage("Handler programático!");
+    })
+    .onLeftClick(Arrays.asList("message: YAML action"))  // Ignorado!
+    .actions(Arrays.asList("message: Fallback"))         // Usado para outros clicks
+    .build();
+```
+
+### Compatibilidade
+
+**IMPORTANTE**: Configurações antigas continuam funcionando!
+
+```yaml
+# Antigo (ainda funciona)
+items:
+  old_item:
+    slot: 10
+    actions:
+      - "message: Hello"
+
+# Novo (com click types)
+items:
+  new_item:
+    slot: 11
+    on_left_click:
+      - "message: Left click!"
+    on_right_click:
+      - "message: Right click!"
+```
+
+### Performance
+
+- **Zero overhead** se não usar handlers por tipo (fallback direto para `actions`)
+- **EnumMap** para O(1) lookup por ClickType
+- **ClickContext** é record imutável (zero custo de cópia)
+- Handlers programáticos evitam parsing de actions (mais rápido)
+
+### Use Cases
+
+**Shop com Buy/Sell:**
+```yaml
+on_left_click:  # Comprar
+  - "console: eco take %player_name% 100"
+  - "console: give %player_name% diamond 1"
+on_right_click: # Vender
+  - "console: clear %player_name% diamond 1"
+  - "console: eco give %player_name% 80"
+```
+
+**Menu de Navegação:**
+```yaml
+on_left_click:      # Próxima página
+  - "next_page"
+on_right_click:     # Página anterior
+  - "prev_page"
+on_middle_click:    # Primeira página
+  - "switch_tab: main"
+```
+
+**Info vs Action:**
+```yaml
+on_left_click:      # Executar ação
+  - "console: warp spawn"
+on_right_click:     # Ver informações
+  - "message: &7Warp: Spawn"
+  - "message: &7Status: Active"
+```
+
+### Troubleshooting
+
+**Actions não executam?**
+1. Verificar nome correto: `on_left_click` (underscore, não hífen)
+2. Verificar se item está no slot correto
+3. Ativar debug: `debug: true` em `config.yml`
+4. Checar console: `[InventoryAction] Handling LEFT for player ...`
+
+**Handlers programáticos ignorados?**
+- Causa: Handlers programáticos só funcionam via API Java (não YAML)
+- YAML sempre usa actions (strings)
+
+**Conflito entre handler e actions?**
+- Handlers programáticos têm prioridade absoluta
+- Se definir `.onLeftClick(handler)`, actions YAML são ignoradas
 
 ---
