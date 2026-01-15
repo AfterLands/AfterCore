@@ -25,17 +25,21 @@ import java.util.logging.Logger;
 /**
  * Processes annotated command classes to build RootNode trees.
  *
- * <p>This processor handles:</p>
+ * <p>
+ * This processor handles:
+ * </p>
  * <ul>
- *   <li>@Command classes and their @Subcommand methods</li>
- *   <li>@Arg parameter extraction and ArgumentSpec creation</li>
- *   <li>@Flag parameter extraction and FlagSpec creation</li>
- *   <li>@Sender parameter injection</li>
- *   <li>MethodHandle compilation via ParameterInjector</li>
+ * <li>@Command classes and their @Subcommand methods</li>
+ * <li>@Arg parameter extraction and ArgumentSpec creation</li>
+ * <li>@Flag parameter extraction and FlagSpec creation</li>
+ * <li>@Sender parameter injection</li>
+ * <li>MethodHandle compilation via ParameterInjector</li>
  * </ul>
  *
- * <p>Performance: Reflection is used only during registration.
- * Execution uses compiled MethodHandles for zero-reflection overhead.</p>
+ * <p>
+ * Performance: Reflection is used only during registration.
+ * Execution uses compiled MethodHandles for zero-reflection overhead.
+ * </p>
  */
 public final class AnnotationProcessor {
 
@@ -54,9 +58,9 @@ public final class AnnotationProcessor {
      * @param debug        Whether debug mode is enabled
      */
     public AnnotationProcessor(@NotNull Plugin owner,
-                                @NotNull ArgumentTypeRegistry typeRegistry,
-                                @NotNull Logger logger,
-                                boolean debug) {
+            @NotNull ArgumentTypeRegistry typeRegistry,
+            @NotNull Logger logger,
+            boolean debug) {
         this.owner = Objects.requireNonNull(owner, "owner");
         this.typeRegistry = Objects.requireNonNull(typeRegistry, "typeRegistry");
         this.parameterInjector = new ParameterInjector(typeRegistry);
@@ -135,6 +139,8 @@ public final class AnnotationProcessor {
             }
 
             SubNode subNode = SubNode.builder(subName)
+                    .description(subAnnotation.description().isEmpty() ? null : subAnnotation.description())
+                    .usage(subAnnotation.usage().isEmpty() ? null : subAnnotation.usage())
                     .permission(subPermission)
                     .arguments(signature.arguments)
                     .flags(signature.flags)
@@ -145,9 +151,14 @@ public final class AnnotationProcessor {
         }
 
         // Build root node
+        String helpPrefix = cmdAnnotation.helpPrefix().isEmpty()
+                ? rootName.toUpperCase(Locale.ROOT)
+                : cmdAnnotation.helpPrefix();
+
         return RootNode.builder(owner, rootName)
                 .aliases(cmdAnnotation.aliases())
                 .permission(rootPermission)
+                .helpPrefix(helpPrefix)
                 .children(children.values())
                 .arguments(rootArgs)
                 .flags(rootFlags)
@@ -215,7 +226,9 @@ public final class AnnotationProcessor {
      */
     @NotNull
     private String inferTypeName(@NotNull Class<?> javaType) {
-        if (javaType == String.class) {
+        if (javaType == String[].class) {
+            return "string[]";
+        } else if (javaType == String.class) {
             return "string";
         } else if (javaType == int.class || javaType == Integer.class) {
             return "integer";
@@ -240,8 +253,8 @@ public final class AnnotationProcessor {
      */
     private record MethodSignature(
             @NotNull List<CommandSpec.ArgumentSpec> arguments,
-            @NotNull List<CommandSpec.FlagSpec> flags
-    ) {}
+            @NotNull List<CommandSpec.FlagSpec> flags) {
+    }
 
     /**
      * Exception thrown when annotation processing fails.

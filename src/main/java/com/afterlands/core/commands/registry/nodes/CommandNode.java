@@ -13,15 +13,19 @@ import java.util.Set;
 /**
  * Base interface for all command tree nodes.
  *
- * <p>The command framework uses a tree structure where:</p>
+ * <p>
+ * The command framework uses a tree structure where:
+ * </p>
  * <ul>
- *   <li>{@link RootNode} represents the top-level command (e.g., /mycommand)</li>
- *   <li>{@link SubNode} represents subcommands (e.g., /mycommand reload)</li>
- *   <li>Arguments and flags are attached to nodes</li>
+ * <li>{@link RootNode} represents the top-level command (e.g., /mycommand)</li>
+ * <li>{@link SubNode} represents subcommands (e.g., /mycommand reload)</li>
+ * <li>Arguments and flags are attached to nodes</li>
  * </ul>
  *
- * <p>This design allows efficient O(1) lookup for subcommands while maintaining
- * a clear hierarchy for help generation and tab completion.</p>
+ * <p>
+ * This design allows efficient O(1) lookup for subcommands while maintaining
+ * a clear hierarchy for help generation and tab completion.
+ * </p>
  */
 public sealed interface CommandNode permits RootNode, SubNode {
 
@@ -99,8 +103,10 @@ public sealed interface CommandNode permits RootNode, SubNode {
     /**
      * Gets the compiled executor for this node.
      *
-     * <p>This is compiled from annotations/builders at registration time
-     * to avoid reflection in the hot path.</p>
+     * <p>
+     * This is compiled from annotations/builders at registration time
+     * to avoid reflection in the hot path.
+     * </p>
      *
      * @return The executor, or null if this node has no direct execution
      */
@@ -184,14 +190,15 @@ public sealed interface CommandNode permits RootNode, SubNode {
     /**
      * Compiled executor that wraps a MethodHandle or lambda.
      *
-     * <p>This allows zero-reflection execution in the hot path while
-     * supporting both annotation-based and builder-based commands.</p>
+     * <p>
+     * This allows zero-reflection execution in the hot path while
+     * supporting both annotation-based and builder-based commands.
+     * </p>
      */
     record CompiledExecutor(
             @Nullable MethodHandle methodHandle,
             @Nullable Object handlerInstance,
-            @Nullable CommandSpec.CommandExecutor lambdaExecutor
-    ) {
+            @Nullable CommandSpec.CommandExecutor lambdaExecutor) {
         /**
          * Creates a compiled executor from a lambda.
          */
@@ -216,7 +223,7 @@ public sealed interface CommandNode permits RootNode, SubNode {
             if (lambdaExecutor != null) {
                 lambdaExecutor.execute(context);
             } else if (methodHandle != null && handlerInstance != null) {
-                methodHandle.invoke(handlerInstance, context);
+                methodHandle.invoke(context);
             }
         }
 

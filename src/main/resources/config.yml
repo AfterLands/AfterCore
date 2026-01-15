@@ -43,5 +43,10 @@ protocol:
   # Máximo de chunks processados por batch por player.
   max-chunks-per-batch: 16
 
+commands:
+  help:
+    # Número de subcomandos exibidos por página no help
+    page-size: 7
+
 debug: false
 

@@ -16,16 +16,22 @@ import java.util.logging.Logger;
 /**
  * Central registry for command management.
  *
- * <p>The CommandRegistry coordinates between the command graph (internal representation)
- * and the Bukkit command binder (external registration). It provides:</p>
+ * <p>
+ * The CommandRegistry coordinates between the command graph (internal
+ * representation)
+ * and the Bukkit command binder (external registration). It provides:
+ * </p>
  * <ul>
- *   <li>Registration from CommandSpec (DSL/Builder)</li>
- *   <li>Registration from annotated handlers (processed by AnnotationProcessor)</li>
- *   <li>Lifecycle management (register/unregister by owner)</li>
- *   <li>Conflict resolution and logging</li>
+ * <li>Registration from CommandSpec (DSL/Builder)</li>
+ * <li>Registration from annotated handlers (processed by
+ * AnnotationProcessor)</li>
+ * <li>Lifecycle management (register/unregister by owner)</li>
+ * <li>Conflict resolution and logging</li>
  * </ul>
  *
- * <p>Thread Safety: All public methods are thread-safe.</p>
+ * <p>
+ * Thread Safety: All public methods are thread-safe.
+ * </p>
  */
 public final class CommandRegistry {
 
@@ -40,12 +46,14 @@ public final class CommandRegistry {
      *
      * @param corePlugin The AfterCore plugin instance
      * @param binder     The Bukkit command binder
+     * @param graph      The shared command graph
      * @param debug      Whether debug logging is enabled
      */
-    public CommandRegistry(@NotNull Plugin corePlugin, @NotNull BukkitCommandBinder binder, boolean debug) {
+    public CommandRegistry(@NotNull Plugin corePlugin, @NotNull BukkitCommandBinder binder, @NotNull CommandGraph graph,
+            boolean debug) {
         this.corePlugin = Objects.requireNonNull(corePlugin, "corePlugin");
         this.logger = corePlugin.getLogger();
-        this.graph = new CommandGraph();
+        this.graph = Objects.requireNonNull(graph, "graph");
         this.binder = Objects.requireNonNull(binder, "binder");
         this.debug = debug;
     }
@@ -94,8 +102,10 @@ public final class CommandRegistry {
     /**
      * Registers a pre-built root node.
      *
-     * <p>This method is used by the annotation processor after building
-     * the command tree from annotations.</p>
+     * <p>
+     * This method is used by the annotation processor after building
+     * the command tree from annotations.
+     * </p>
      *
      * @param root The root node to register
      * @return Registration result

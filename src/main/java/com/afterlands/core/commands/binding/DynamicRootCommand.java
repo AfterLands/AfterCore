@@ -12,16 +12,20 @@ import java.util.Objects;
 /**
  * Dynamic command implementation that delegates to a CommandDispatcher.
  *
- * <p>This class serves as the bridge between Bukkit's command system and
- * the AfterCore command framework. It:</p>
+ * <p>
+ * This class serves as the bridge between Bukkit's command system and
+ * the AfterCore command framework. It:
+ * </p>
  * <ul>
- *   <li>Extends Bukkit's Command class for CommandMap registration</li>
- *   <li>Implements PluginIdentifiableCommand for plugin ownership tracking</li>
- *   <li>Delegates execution and tab-completion to CommandDispatcher</li>
+ * <li>Extends Bukkit's Command class for CommandMap registration</li>
+ * <li>Implements PluginIdentifiableCommand for plugin ownership tracking</li>
+ * <li>Delegates execution and tab-completion to CommandDispatcher</li>
  * </ul>
  *
- * <p>This class is lightweight and performs no logic itself - all work
- * is delegated to the dispatcher to keep the Bukkit integration minimal.</p>
+ * <p>
+ * This class is lightweight and performs no logic itself - all work
+ * is delegated to the dispatcher to keep the Bukkit integration minimal.
+ * </p>
  */
 public final class DynamicRootCommand extends Command implements PluginIdentifiableCommand {
 
@@ -31,22 +35,40 @@ public final class DynamicRootCommand extends Command implements PluginIdentifia
     /**
      * Creates a new DynamicRootCommand.
      *
-     * @param name        Primary command name
-     * @param description Command description
+     * @param name         Primary command name
+     * @param description  Command description
      * @param usageMessage Usage message
-     * @param aliases     Command aliases
-     * @param owner       Owner plugin
-     * @param dispatcher  The command dispatcher
+     * @param aliases      Command aliases
+     * @param owner        Owner plugin
+     * @param dispatcher   The command dispatcher
      */
     public DynamicRootCommand(@NotNull String name,
-                              @NotNull String description,
-                              @NotNull String usageMessage,
-                              @NotNull List<String> aliases,
-                              @NotNull Plugin owner,
-                              @NotNull CommandDispatcher dispatcher) {
+            @NotNull String description,
+            @NotNull String usageMessage,
+            @NotNull List<String> aliases,
+            @NotNull Plugin owner,
+            @NotNull CommandDispatcher dispatcher) {
         super(name, description, usageMessage, aliases);
         this.owner = Objects.requireNonNull(owner, "owner");
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
+
+        // Initialize timings (needed for Spigot/Paper servers)
+        // We use reflection to avoid compile-time dependency issues with spigot-api
+        // versions
+        try {
+            java.lang.reflect.Field timingsField = org.bukkit.command.Command.class.getDeclaredField("timings");
+            timingsField.setAccessible(true);
+
+            // Try to find Aikar's Timings class (modern Spigot/Paper)
+            Class<?> timingsClass = Class.forName("co.aikar.timings.Timings");
+            java.lang.reflect.Method ofMethod = timingsClass.getMethod("of", Plugin.class, String.class);
+            Object timing = ofMethod.invoke(null, owner, "Command: " + name);
+
+            timingsField.set(this, timing);
+        } catch (Throwable ignored) {
+            // Fallback: Field doesn't exist or Timings class not found
+            // This is fine for vanilla Bukkit or very old versions
+        }
     }
 
     @Override
@@ -58,8 +80,8 @@ public final class DynamicRootCommand extends Command implements PluginIdentifia
     @NotNull
     @Override
     public List<String> tabComplete(@NotNull CommandSender sender,
-                                    @NotNull String alias,
-                                    @NotNull String[] args) throws IllegalArgumentException {
+            @NotNull String alias,
+            @NotNull String[] args) throws IllegalArgumentException {
         // Delegate to dispatcher
         return dispatcher.tabComplete(sender, alias, args);
     }

@@ -8,12 +8,17 @@ import java.lang.annotation.Target;
 /**
  * Marks a class as a command handler.
  *
- * <p>The annotated class should contain methods annotated with {@link Subcommand}
- * that define the command's subcommands and behavior.</p>
+ * <p>
+ * The annotated class should contain methods annotated with {@link Subcommand}
+ * that define the command's subcommands and behavior.
+ * </p>
  *
- * <p>Example:</p>
+ * <p>
+ * Example:
+ * </p>
+ * 
  * <pre>{@code
- * @Command(name = "myplugin", aliases = {"mp"}, description = "Main plugin command")
+ * @Command(name = "myplugin", aliases = { "mp" }, description = "Main plugin command")
  * @Permission("myplugin.use")
  * public class MyPluginCommand {
  *
@@ -54,5 +59,10 @@ public @interface Command {
      * Custom usage string. If empty, auto-generated.
      */
     String usage() default "";
-}
 
+    /**
+     * Prefix shown in help output (e.g., "NBT" for "&b&lNBT &8┃").
+     * If empty, uses uppercase command name.
+     */
+    String helpPrefix() default "";
+}

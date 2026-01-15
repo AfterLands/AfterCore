@@ -26,23 +26,27 @@ import java.util.logging.Logger;
 /**
  * Default implementation of CommandService.
  *
- * <p>This implementation provides:</p>
+ * <p>
+ * This implementation provides:
+ * </p>
  * <ul>
- *   <li>Annotation-based command registration</li>
- *   <li>DSL/Builder command registration</li>
- *   <li>Dynamic Bukkit CommandMap integration</li>
- *   <li>Plugin-based lifecycle management</li>
- *   <li>Help/usage generation</li>
- *   <li>Tab completion</li>
- *   <li>Metrics and observability</li>
+ * <li>Annotation-based command registration</li>
+ * <li>DSL/Builder command registration</li>
+ * <li>Dynamic Bukkit CommandMap integration</li>
+ * <li>Plugin-based lifecycle management</li>
+ * <li>Help/usage generation</li>
+ * <li>Tab completion</li>
+ * <li>Metrics and observability</li>
  * </ul>
  *
- * <p>Performance characteristics:</p>
+ * <p>
+ * Performance characteristics:
+ * </p>
  * <ul>
- *   <li>Reflection only at registration time (compiled to MethodHandles)</li>
- *   <li>O(1) command lookup</li>
- *   <li>O(d) subcommand resolution where d is depth</li>
- *   <li>Minimal allocation in hot path</li>
+ * <li>Reflection only at registration time (compiled to MethodHandles)</li>
+ * <li>O(1) command lookup</li>
+ * <li>O(d) subcommand resolution where d is depth</li>
+ * <li>Minimal allocation in hot path</li>
  * </ul>
  */
 public final class DefaultCommandService implements CommandService {
@@ -72,11 +76,11 @@ public final class DefaultCommandService implements CommandService {
      * @param debug      Whether debug mode is enabled
      */
     public DefaultCommandService(@NotNull Plugin corePlugin,
-                                  @NotNull ConfigService config,
-                                  @NotNull MessageService messages,
-                                  @NotNull SchedulerService scheduler,
-                                  @NotNull MetricsService metrics,
-                                  boolean debug) {
+            @NotNull ConfigService config,
+            @NotNull MessageService messages,
+            @NotNull SchedulerService scheduler,
+            @NotNull MetricsService metrics,
+            boolean debug) {
         this.corePlugin = Objects.requireNonNull(corePlugin, "corePlugin");
         this.logger = corePlugin.getLogger();
         this.config = Objects.requireNonNull(config, "config");
@@ -91,37 +95,18 @@ public final class DefaultCommandService implements CommandService {
         // Initialize type registry
         this.typeRegistry = ArgumentTypeRegistry.instance();
 
-        // Initialize registry without binder first
-        this.registry = new CommandRegistry(corePlugin, null, debug);
+        // Initialize the shared command graph
+        CommandGraph graph = new CommandGraph();
 
         // Initialize dispatcher factory with graph access
         DefaultCommandDispatcher.Factory dispatcherFactory = new DefaultCommandDispatcher.Factory(
-                messageFacade, scheduler, metrics, logger, debug, registry.graph()
-        );
+                messageFacade, scheduler, metrics, logger, debug, graph, config.messages());
 
         // Initialize binder
         this.binder = new BukkitCommandBinder(corePlugin, dispatcherFactory, debug);
 
-        // Reinitialize registry with binder (CommandRegistry will need refactoring to accept binder post-construction)
-        // For now, create a new instance
-        this.registry = new CommandRegistry(corePlugin, binder, debug);
-
-        // Update factory's graph reference to use the new registry's graph
-        // This is safe because the graph is the same instance
-        DefaultCommandDispatcher.Factory newFactory = new DefaultCommandDispatcher.Factory(
-                messageFacade, scheduler, metrics, logger, debug, registry.graph()
-        );
-
-        // Update binder's factory
-        try {
-            java.lang.reflect.Field factoryField = BukkitCommandBinder.class.getDeclaredField("dispatcherFactory");
-            factoryField.setAccessible(true);
-            factoryField.set(binder, newFactory);
-        } catch (Exception e) {
-            if (debug) {
-                logger.warning("[Commands] Could not update binder factory: " + e.getMessage());
-            }
-        }
+        // Initialize registry with binder and graph
+        this.registry = new CommandRegistry(corePlugin, binder, graph, debug);
 
         // Initialize annotation processor
         this.annotationProcessor = new AnnotationProcessor(corePlugin, typeRegistry, logger, debug);
@@ -159,6 +144,9 @@ public final class DefaultCommandService implements CommandService {
             logger.info("[Commands] Processing annotated handler: " + handlerClass.getName());
         }
 
+        // Auto-register plugin's messages.yml if it exists
+        autoRegisterPluginMessages(owner);
+
         try {
             // Create processor with correct owner
             AnnotationProcessor processor = new AnnotationProcessor(owner, typeRegistry, logger, debug);
@@ -167,6 +155,40 @@ public final class DefaultCommandService implements CommandService {
         } catch (Exception e) {
             logger.log(Level.SEVERE, "[Commands] Failed to register handler: " + handlerClass.getName(), e);
             throw new RuntimeException("Failed to register command handler", e);
+        }
+    }
+
+    /**
+     * Auto-registers a plugin's messages.yml if it exists.
+     */
+    private void autoRegisterPluginMessages(@NotNull Plugin plugin) {
+        // Skip if already registered or is AfterCore (already loaded)
+        if (plugin.getName().equals(corePlugin.getName())) {
+            return;
+        }
+
+        java.io.File messagesFile = new java.io.File(plugin.getDataFolder(), "messages.yml");
+        if (messagesFile.exists()) {
+            org.bukkit.configuration.file.YamlConfiguration pluginMessagesConfig = org.bukkit.configuration.file.YamlConfiguration
+                    .loadConfiguration(messagesFile);
+            messageFacade.registerPluginMessages(plugin, pluginMessagesConfig);
+            if (debug) {
+                logger.info("[Commands] Auto-registered messages.yml for " + plugin.getName());
+            }
+        } else {
+            // Try to save default from resources if the plugin has one
+            if (plugin.getResource("messages.yml") != null) {
+                plugin.saveResource("messages.yml", false);
+                messagesFile = new java.io.File(plugin.getDataFolder(), "messages.yml");
+                if (messagesFile.exists()) {
+                    org.bukkit.configuration.file.YamlConfiguration pluginMessagesConfig = org.bukkit.configuration.file.YamlConfiguration
+                            .loadConfiguration(messagesFile);
+                    messageFacade.registerPluginMessages(plugin, pluginMessagesConfig);
+                    if (debug) {
+                        logger.info("[Commands] Created and registered messages.yml for " + plugin.getName());
+                    }
+                }
+            }
         }
     }
 

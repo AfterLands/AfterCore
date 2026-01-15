@@ -1,14 +1,27 @@
 prefix: "&8[&bAfterCore&8]&r "
 
 errors:
-  no-permission: "&cVoce nao tem permissao para isso."
+  no-permission: "&cVoce não tem permissão para isso."
   player-only: "&cEste comando so pode ser usado por jogadores."
   internal: "&cOcorreu um erro interno. Contate um administrador."
 
 commands:
-  unknown-subcommand: "&cSubcomando desconhecido: &f{subcommand}"
-  usage: "&eUso: &f{usage}"
+  unknown-subcommand: "&c✖ Subcomando desconhecido: &f{subcommand}"
+  usage: "&7Uso: &f{usage}"
   help:
-    header: "&6=== Ajuda: &f{command} &6==="
-    line: " &f{command} &7- {description}"
+    header:
+      - " "
+      - " &b&l{plugin} &8┃ &fAjuda - &b{command}"
+      - " &a[!] &7sub-cmds &8┃ &c<> &7obrigatório &8┃ &d[] &7opcional"
+      - " "
+    usage: " &7Uso: &f{usage}"
+    subcommand-entry: " &b▪ &f{command} &7- {description}"
+    subcommand-hover: "&a► Clique para sugerir"
+    footer:
+      page-indicator: " &7Página &b{current}&7/&b{total}"
+      separator: " &8┃"
+      prev-page: " &7⇦ Anterior"
+      prev-hover: "&7Clique para página {page}"
+      next-page: " &7Próxima ⇨"
+      next-hover: "&7Clique para página {page}"
 

@@ -23,19 +23,28 @@ import java.util.List;
 /**
  * Injects command parameters from CommandContext using MethodHandles.
  *
- * <p>This class compiles method signatures at registration time (using reflection)
- * and generates efficient MethodHandle-based adapters for execution (no reflection
- * in hot path).</p>
+ * <p>
+ * This class compiles method signatures at registration time (using reflection)
+ * and generates efficient MethodHandle-based adapters for execution (no
+ * reflection
+ * in hot path).
+ * </p>
  *
- * <p>Supported parameter types:</p>
+ * <p>
+ * Supported parameter types:
+ * </p>
  * <ul>
- *   <li>{@code CommandContext} - the full context</li>
- *   <li>{@code @Sender Player/CommandSender/ConsoleCommandSender} - sender injection</li>
- *   <li>{@code @Arg("name") T} - typed argument injection</li>
- *   <li>{@code @Flag("name") T} - typed flag injection</li>
+ * <li>{@code CommandContext} - the full context</li>
+ * <li>{@code @Sender Player/CommandSender/ConsoleCommandSender} - sender
+ * injection</li>
+ * <li>{@code @Arg("name") T} - typed argument injection</li>
+ * <li>{@code @Flag("name") T} - typed flag injection</li>
  * </ul>
  *
- * <p>Performance: Reflection only at registration time, MethodHandles in execution.</p>
+ * <p>
+ * Performance: Reflection only at registration time, MethodHandles in
+ * execution.
+ * </p>
  */
 public final class ParameterInjector {
 
@@ -55,11 +64,13 @@ public final class ParameterInjector {
     /**
      * Compiles a method to a MethodHandle with parameter injection.
      *
-     * <p>This method analyzes the method signature and creates an adapter that:</p>
+     * <p>
+     * This method analyzes the method signature and creates an adapter that:
+     * </p>
      * <ol>
-     *   <li>Takes a CommandContext as input</li>
-     *   <li>Extracts parameters from the context</li>
-     *   <li>Invokes the original method with extracted parameters</li>
+     * <li>Takes a CommandContext as input</li>
+     * <li>Extracts parameters from the context</li>
+     * <li>Invokes the original method with extracted parameters</li>
      * </ol>
      *
      * @param method  The method to compile
@@ -126,16 +137,16 @@ public final class ParameterInjector {
 
         throw new IllegalArgumentException(
                 "Parameter " + param.getName() + " of type " + type.getSimpleName()
-                        + " must be annotated with @Arg, @Flag, or @Sender, or be CommandContext"
-        );
+                        + " must be annotated with @Arg, @Flag, or @Sender, or be CommandContext");
     }
 
     /**
-     * Creates an adapter MethodHandle that extracts parameters and invokes the base handle.
+     * Creates an adapter MethodHandle that extracts parameters and invokes the base
+     * handle.
      */
     @NotNull
     private MethodHandle createAdapter(@NotNull MethodHandle baseHandle,
-                                        @NotNull List<ParameterExtractor> extractors) throws Exception {
+            @NotNull List<ParameterExtractor> extractors) throws Exception {
         // The adapter signature: (CommandContext) -> void
         // We need to convert baseHandle which might be (T1, T2, ...) -> void
 
@@ -149,8 +160,7 @@ public final class ParameterInjector {
         MethodHandle wrapper = MethodHandles.lookup().findStatic(
                 ParameterInjector.class,
                 "invokeWithExtraction",
-                MethodType.methodType(void.class, MethodHandle.class, List.class, CommandContext.class)
-        );
+                MethodType.methodType(void.class, MethodHandle.class, List.class, CommandContext.class));
 
         // Bind the target handle and extractors
         return wrapper.bindTo(baseHandle).bindTo(extractors);
@@ -160,8 +170,8 @@ public final class ParameterInjector {
      * Static helper method to invoke a handle with parameter extraction.
      */
     private static void invokeWithExtraction(MethodHandle target,
-                                              List<ParameterExtractor> extractors,
-                                              CommandContext ctx) throws Throwable {
+            List<ParameterExtractor> extractors,
+            CommandContext ctx) throws Throwable {
         Object[] args = new Object[extractors.size()];
         for (int i = 0; i < extractors.size(); i++) {
             args[i] = extractors.get(i).extract(ctx);
@@ -203,7 +213,7 @@ public final class ParameterInjector {
         }
 
         static ParameterExtractor argument(String name, Class<?> type, String defaultValue,
-                                            ArgumentTypeRegistry typeRegistry) {
+                ArgumentTypeRegistry typeRegistry) {
             return ctx -> {
                 Object value = ctx.args().get(name);
 
@@ -213,8 +223,7 @@ public final class ParameterInjector {
                     if (argType != null) {
                         ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(
                                 ctx.sender(),
-                                com.afterlands.core.commands.parser.ArgReader.parse(defaultValue)
-                        );
+                                com.afterlands.core.commands.parser.ArgReader.parse(defaultValue));
                         value = argType.parse(parseCtx, defaultValue);
                     } else {
                         value = defaultValue;
@@ -280,6 +289,18 @@ public final class ParameterInjector {
                 return value;
             }
 
+            // Handle String[] type - varargs or remaining args
+            if (targetType == String[].class) {
+                if (value instanceof String[] arr) {
+                    return arr;
+                } else if (value instanceof String str) {
+                    return new String[] { str };
+                } else if (value instanceof java.util.List<?> list) {
+                    return list.stream().map(Object::toString).toArray(String[]::new);
+                }
+                return new String[] { value.toString() };
+            }
+
             // Handle primitive boxing
             if (targetType.isPrimitive()) {
                 return value; // Already boxed by parsers
@@ -303,14 +324,22 @@ public final class ParameterInjector {
         }
 
         static Object getDefaultPrimitive(Class<?> type) {
-            if (type == int.class) return 0;
-            if (type == double.class) return 0.0;
-            if (type == boolean.class) return false;
-            if (type == long.class) return 0L;
-            if (type == float.class) return 0.0f;
-            if (type == byte.class) return (byte) 0;
-            if (type == short.class) return (short) 0;
-            if (type == char.class) return '\0';
+            if (type == int.class)
+                return 0;
+            if (type == double.class)
+                return 0.0;
+            if (type == boolean.class)
+                return false;
+            if (type == long.class)
+                return 0L;
+            if (type == float.class)
+                return 0.0f;
+            if (type == byte.class)
+                return (byte) 0;
+            if (type == short.class)
+                return (short) 0;
+            if (type == char.class)
+                return '\0';
             return null;
         }
     }

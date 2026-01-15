@@ -10,17 +10,21 @@ import java.util.*;
 /**
  * Represents a root command node (e.g., /mycommand).
  *
- * <p>Root nodes are the top-level entry points for commands and contain:</p>
+ * <p>
+ * Root nodes are the top-level entry points for commands and contain:
+ * </p>
  * <ul>
- *   <li>The owning plugin for lifecycle management</li>
- *   <li>Command name and aliases</li>
- *   <li>Description and usage information</li>
- *   <li>Permission requirements</li>
- *   <li>Child subcommands</li>
- *   <li>Direct executor (if the root command itself is executable)</li>
+ * <li>The owning plugin for lifecycle management</li>
+ * <li>Command name and aliases</li>
+ * <li>Description and usage information</li>
+ * <li>Permission requirements</li>
+ * <li>Child subcommands</li>
+ * <li>Direct executor (if the root command itself is executable)</li>
  * </ul>
  *
- * <p>This class is immutable and thread-safe.</p>
+ * <p>
+ * This class is immutable and thread-safe.
+ * </p>
  */
 public record RootNode(
         @NotNull Plugin owner,
@@ -29,12 +33,12 @@ public record RootNode(
         @Nullable String description,
         @Nullable String usage,
         @Nullable String permission,
+        @Nullable String helpPrefix,
         boolean playerOnly,
         @NotNull Map<String, SubNode> children,
         @NotNull List<CommandSpec.ArgumentSpec> arguments,
         @NotNull List<CommandSpec.FlagSpec> flags,
-        @Nullable CompiledExecutor executor
-) implements CommandNode {
+        @Nullable CompiledExecutor executor) implements CommandNode {
 
     /**
      * Creates a new RootNode with defensive copying.
@@ -95,6 +99,7 @@ public record RootNode(
         private String description;
         private String usage;
         private String permission;
+        private String helpPrefix;
         private boolean playerOnly = false;
         private final Map<String, SubNode> children = new LinkedHashMap<>();
         private final List<CommandSpec.ArgumentSpec> arguments = new ArrayList<>();
@@ -137,6 +142,12 @@ public record RootNode(
         @NotNull
         public Builder permission(@Nullable String permission) {
             this.permission = permission;
+            return this;
+        }
+
+        @NotNull
+        public Builder helpPrefix(@Nullable String helpPrefix) {
+            this.helpPrefix = helpPrefix;
             return this;
         }
 
@@ -194,8 +205,7 @@ public record RootNode(
         public RootNode build() {
             return new RootNode(
                     owner, name, aliases, description, usage, permission,
-                    playerOnly, children, arguments, flags, executor
-            );
+                    helpPrefix, playerOnly, children, arguments, flags, executor);
         }
     }
 }

@@ -16,18 +16,22 @@ import java.util.function.Supplier;
 /**
  * Context object passed to command executors.
  *
- * <p>This immutable context provides all necessary information and services
- * for command execution, including:</p>
+ * <p>
+ * This immutable context provides all necessary information and services
+ * for command execution, including:
+ * </p>
  * <ul>
- *   <li>The command sender and label</li>
- *   <li>Parsed arguments and flags</li>
- *   <li>Services for messaging, scheduling, and metrics</li>
- *   <li>Convenience methods for common operations</li>
+ * <li>The command sender and label</li>
+ * <li>Parsed arguments and flags</li>
+ * <li>Services for messaging, scheduling, and metrics</li>
+ * <li>Convenience methods for common operations</li>
  * </ul>
  *
- * <p>Thread Safety: This context is created on the main thread and should
+ * <p>
+ * Thread Safety: This context is created on the main thread and should
  * only be used on the main thread. For async operations, use the provided
- * {@link #runAsync(Supplier)} method which properly handles thread context.</p>
+ * {@link #runAsync(Supplier)} method which properly handles thread context.
+ * </p>
  *
  * @param owner     The plugin that owns this command
  * @param sender    The command sender
@@ -46,8 +50,7 @@ public record CommandContext(
         @NotNull ParsedFlags flags,
         @NotNull MessageFacade messages,
         @NotNull SchedulerService scheduler,
-        @NotNull MetricsService metrics
-) {
+        @NotNull MetricsService metrics) {
     /**
      * Checks if the sender is a player.
      *
@@ -70,8 +73,10 @@ public record CommandContext(
     /**
      * Gets the sender as a Player, throwing if not a player.
      *
-     * <p>Only use this when you've already verified the sender is a player
-     * (e.g., in playerOnly commands).</p>
+     * <p>
+     * Only use this when you've already verified the sender is a player
+     * (e.g., in playerOnly commands).
+     * </p>
      *
      * @return The sender as a Player
      * @throws IllegalStateException if sender is not a player
@@ -86,21 +91,31 @@ public record CommandContext(
 
     /**
      * Sends a message using the message facade.
+     * 
+     * <p>
+     * Messages are resolved from the plugin owner's messages.yml first,
+     * then fall back to AfterCore's messages.yml.
+     * </p>
      *
      * @param path Message path in the messages configuration
      */
     public void send(@NotNull String path) {
-        messages.send(sender, path);
+        messages.forPlugin(owner).send(sender, path);
     }
 
     /**
      * Sends a message with placeholder replacements.
+     * 
+     * <p>
+     * Messages are resolved from the plugin owner's messages.yml first,
+     * then fall back to AfterCore's messages.yml.
+     * </p>
      *
      * @param path         Message path in the messages configuration
      * @param placeholders Placeholder key-value pairs (must be even number)
      */
     public void send(@NotNull String path, @NotNull Object... placeholders) {
-        messages.send(sender, path, placeholders);
+        messages.forPlugin(owner).send(sender, path, placeholders);
     }
 
     /**
@@ -115,9 +130,11 @@ public record CommandContext(
     /**
      * Runs an operation asynchronously and returns a future.
      *
-     * <p>The operation runs on the IO executor. If you need to interact
+     * <p>
+     * The operation runs on the IO executor. If you need to interact
      * with Bukkit API after the async operation, chain with
-     * {@code thenAcceptSync} or use {@link SchedulerService#runSync}.</p>
+     * {@code thenAcceptSync} or use {@link SchedulerService#runSync}.
+     * </p>
      *
      * @param operation The operation to run
      * @param <T>       The result type
@@ -262,7 +279,8 @@ public record CommandContext(
         private SchedulerService scheduler;
         private MetricsService metrics;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         @NotNull
         public Builder owner(@NotNull Plugin owner) {
@@ -315,8 +333,7 @@ public record CommandContext(
         @NotNull
         public CommandContext build() {
             return new CommandContext(
-                    owner, sender, label, args, flags, messages, scheduler, metrics
-            );
+                    owner, sender, label, args, flags, messages, scheduler, metrics);
         }
     }
 }
