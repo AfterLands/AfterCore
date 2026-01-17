@@ -2,7 +2,10 @@ package com.afterlands.core.inventory.action;
 
 import com.afterlands.core.actions.ActionService;
 import com.afterlands.core.concurrent.SchedulerService;
+import com.afterlands.core.conditions.ConditionContext;
 import com.afterlands.core.inventory.InventoryContext;
+import com.afterlands.core.inventory.InventoryService;
+import com.afterlands.core.conditions.ConditionService;
 import com.afterlands.core.inventory.click.ClickContext;
 import com.afterlands.core.inventory.click.ClickHandler;
 import com.afterlands.core.inventory.click.ClickHandlers;
@@ -12,6 +15,8 @@ import com.afterlands.core.inventory.view.InventoryViewHolder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+
+import org.bukkit.plugin.Plugin;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,7 @@ import java.util.logging.Logger;
 public class InventoryActionHandler {
 
     private final ActionService actionService;
+    private final ConditionService conditionService;
     private final PlaceholderResolver placeholderResolver;
     private final SchedulerService scheduler;
     private final Logger logger;
@@ -47,13 +53,17 @@ public class InventoryActionHandler {
     // Type-based click handlers (item type -> handler)
     private final Map<String, ClickHandler> typeHandlers;
 
+    private InventoryService inventoryService;
+
     public InventoryActionHandler(
             ActionService actionService,
+            ConditionService conditionService,
             PlaceholderResolver placeholderResolver,
             SchedulerService scheduler,
             Logger logger,
             boolean debug) {
         this.actionService = actionService;
+        this.conditionService = conditionService;
         this.placeholderResolver = placeholderResolver;
         this.scheduler = scheduler;
         this.logger = logger;
@@ -104,6 +114,102 @@ public class InventoryActionHandler {
                 holder.refresh();
             }
         });
+
+        // open_panel (handled locally to preserve plugin namespace)
+        BiConsumer<Player, String> openHandler = (player, args) -> {
+            if (inventoryService == null || args.isBlank())
+                return;
+
+            InventoryViewHolder holder = InventoryViewHolder.get(player);
+            if (holder != null) {
+                // Parse ID from args (referenced by space)
+                String[] parts = args.trim().split("\\s+");
+                if (parts.length > 0) {
+                    String panelId = parts[0];
+                    Plugin plugin = holder.getPlugin();
+
+                    // Get current context and build navigation history
+                    InventoryContext currentCtx = holder.getContext();
+
+                    // Get existing navigation history or create new one
+                    @SuppressWarnings("unchecked")
+                    java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry> history = currentCtx
+                            .getData("navigation_history", java.util.List.class)
+                            .map(list -> new java.util.ArrayList<>(
+                                    (java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>) list))
+                            .orElseGet(java.util.ArrayList::new);
+
+                    // Add current panel to history
+                    history.add(new com.afterlands.core.inventory.navigation.NavigationEntry(
+                            currentCtx.getInventoryId(),
+                            currentCtx.getPlaceholders()));
+
+                    // Create new context with propagated placeholders and history
+                    InventoryContext ctx = new InventoryContext(player.getUniqueId(), panelId)
+                            .withPlaceholders(currentCtx.getPlaceholders())
+                            .withData("navigation_history", history);
+
+                    // Open with plugin scope
+                    inventoryService.openInventory(plugin, player, panelId, ctx);
+                }
+            }
+        };
+        registerCustomAction("open_panel", openHandler);
+        registerCustomAction("open-panel", openHandler);
+        registerCustomAction("open", openHandler);
+
+        // previous_panel (navigate back in history)
+        // NOTE: This action now executes immediately (not scheduled), so holder is
+        // still available
+        registerCustomAction("previous_panel", (player, argsStr) -> {
+
+            if (inventoryService == null) {
+                logger.warning("[InventoryAction] inventoryService is null!");
+                return;
+            }
+
+            InventoryViewHolder holder = InventoryViewHolder.get(player);
+            if (holder != null) {
+                InventoryContext currentCtx = holder.getContext();
+                Plugin plugin = holder.getPlugin();
+
+                // Get navigation history
+                @SuppressWarnings("unchecked")
+                java.util.Optional<java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>> historyOpt = currentCtx
+                        .getData("navigation_history", java.util.List.class)
+                        .map(list -> (java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>) list);
+
+                if (historyOpt.isPresent()) {
+                    java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry> history = new java.util.ArrayList<>(
+                            historyOpt.get());
+
+                    // Check if there's a previous panel in history
+                    if (!history.isEmpty()) {
+                        // Pop the last entry (go back)
+                        com.afterlands.core.inventory.navigation.NavigationEntry previous = history
+                                .remove(history.size() - 1);
+
+                        // Create new context with previous panel's placeholders and updated history
+                        InventoryContext ctx = new InventoryContext(player.getUniqueId(), previous.getPanelId())
+                                .withPlaceholders(previous.getPlaceholders())
+                                .withData("navigation_history", history);
+
+                        // Open the previous panel
+                        inventoryService.openInventory(plugin, player, previous.getPanelId(), ctx);
+                    } else {
+                        // No history - close the inventory instead
+                        player.closeInventory();
+                    }
+                } else {
+                    // No history - close the inventory instead
+                    player.closeInventory();
+                }
+            } else {
+                logger.warning("[InventoryAction] No InventoryViewHolder found for player");
+            }
+        });
+        registerCustomAction("previous-panel", customHandlers.get("previous_panel"));
+        registerCustomAction("back", customHandlers.get("previous_panel"));
     }
 
     /**
@@ -139,6 +245,25 @@ public class InventoryActionHandler {
         // Criar ClickContext
         ClickContext clickContext = ClickContext.from(event, holder, item, context);
 
+        // 0. Check Click Conditions
+        if (!item.getClickConditions().isEmpty()) {
+            ConditionContext conditionContext = java.util.Collections::emptyMap;
+            boolean canClick = true;
+            for (String condition : item.getClickConditions()) {
+                if (!conditionService.evaluateSync(player, condition, conditionContext)) {
+                    canClick = false;
+                    break;
+                }
+            }
+            if (!canClick) {
+                if (debug) {
+                    logger.info("[InventoryAction] Click denied due to conditions for player " + player.getName());
+                }
+                // Optional: Play deny sound or message if needed, but for now just return
+                return;
+            }
+        }
+
         // 1. Tentar handler baseado em tipo de item (registrado via
         // registerTypeHandler)
         String itemType = item.getType();
@@ -168,11 +293,6 @@ public class InventoryActionHandler {
         List<String> actions = handlers.getActions(clickType);
         if (actions.isEmpty()) {
             return;
-        }
-
-        if (debug) {
-            logger.info("[InventoryAction] Handling " + clickType + " for player " + player.getName()
-                    + " with " + actions.size() + " actions");
         }
 
         executeActions(actions, player, context)
@@ -239,8 +359,15 @@ public class InventoryActionHandler {
             // Check if it's a custom inventory action
             BiConsumer<Player, String> customHandler = customHandlers.get(action.actionType());
             if (customHandler != null) {
-                // Custom inventory action - execute on main thread
-                return scheduler.runSync(() -> customHandler.accept(player, action.arguments()));
+                // Custom inventory action - execute immediately if already on main thread
+                // This is important for navigation actions that need access to the current
+                // holder
+                if (org.bukkit.Bukkit.isPrimaryThread()) {
+                    customHandler.accept(player, action.arguments());
+                    return CompletableFuture.completedFuture(null);
+                } else {
+                    return scheduler.runSync(() -> customHandler.accept(player, action.arguments()));
+                }
             }
 
             // Delegate to ActionService for standard actions
@@ -376,5 +503,9 @@ public class InventoryActionHandler {
      */
     public java.util.Set<String> getRegisteredActions() {
         return java.util.Set.copyOf(customHandlers.keySet());
+    }
+
+    public void setInventoryService(InventoryService inventoryService) {
+        this.inventoryService = inventoryService;
     }
 }

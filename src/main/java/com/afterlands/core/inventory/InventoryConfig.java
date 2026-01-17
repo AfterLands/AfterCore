@@ -13,9 +13,13 @@ import java.util.Map;
 /**
  * Configuração de um inventário.
  *
- * <p>Carregado de inventories.yml ou registrado programaticamente.</p>
+ * <p>
+ * Carregado de inventories.yml ou registrado programaticamente.
+ * </p>
  *
- * <p>Imutável (record) para thread safety.</p>
+ * <p>
+ * Imutável (record) para thread safety.
+ * </p>
  */
 public record InventoryConfig(
         @NotNull String id,
@@ -28,8 +32,7 @@ public record InventoryConfig(
         @NotNull PersistenceConfig persistence,
         boolean shared,
         int titleUpdateInterval, // Intervalo de update do título em ticks (0 = disabled)
-        @NotNull Map<String, Object> metadata
-) {
+        @NotNull Map<String, Object> metadata) {
 
     /**
      * Construtor compacto com validação.
@@ -70,8 +73,7 @@ public record InventoryConfig(
     public record PersistenceConfig(
             boolean enabled,
             boolean autoSave,
-            int saveIntervalSeconds
-    ) {
+            int saveIntervalSeconds) {
         public static PersistenceConfig disabled() {
             return new PersistenceConfig(false, false, 0);
         }
@@ -95,9 +97,9 @@ public record InventoryConfig(
     /**
      * Obtém metadata com cast type-safe.
      *
-     * @param key Chave
+     * @param key  Chave
      * @param type Classe do tipo
-     * @param <T> Tipo
+     * @param <T>  Tipo
      * @return Valor ou null
      */
     @Nullable
@@ -107,6 +109,28 @@ public record InventoryConfig(
             return type.cast(value);
         }
         return null;
+    }
+
+    /**
+     * Creates a copy of this config with a different ID.
+     *
+     * @param newId New inventory ID
+     * @return New InventoryConfig with the specified ID
+     */
+    @NotNull
+    public InventoryConfig withId(@NotNull String newId) {
+        return new InventoryConfig(
+                newId,
+                title,
+                size,
+                items,
+                tabs,
+                pagination,
+                animations,
+                persistence,
+                shared,
+                titleUpdateInterval,
+                metadata);
     }
 
     /**

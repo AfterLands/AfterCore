@@ -20,14 +20,17 @@ import java.util.*;
 /**
  * Representação de um item de GUI configurável.
  *
- * <p>Extensão do AfterBlockAnimations.GuiItem com features adicionais:
+ * <p>
+ * Extensão do AfterBlockAnimations.GuiItem com features adicionais:
  * - NBTAPI support
  * - Animações
  * - Drag-and-drop
  * - Cache inteligente
  * </p>
  *
- * <p>Imutável para thread safety.</p>
+ * <p>
+ * Imutável para thread safety.
+ * </p>
  */
 public class GuiItem {
 
@@ -55,6 +58,8 @@ public class GuiItem {
     private final List<String> dynamicPlaceholders;
     private final int amount;
     private final ClickHandlers clickHandlers;
+    private final List<String> viewConditions;
+    private final List<String> clickConditions;
 
     private GuiItem(Builder builder) {
         this.slot = builder.slot;
@@ -78,17 +83,24 @@ public class GuiItem {
         this.dynamicPlaceholders = List.copyOf(builder.dynamicPlaceholders);
         this.amount = builder.amount;
         this.clickHandlers = builder.clickHandlers;
+        this.viewConditions = List.copyOf(builder.viewConditions);
+        this.clickConditions = List.copyOf(builder.clickConditions);
     }
 
     /**
      * Constrói o ItemStack aplicando placeholders e NBT.
      *
-     * <p><b>DEPRECATED:</b> Use ItemCompiler.compile() para compilação otimizada com cache.
-     * Este método foi mantido apenas para compatibilidade com código legado.</p>
+     * <p>
+     * <b>DEPRECATED:</b> Use ItemCompiler.compile() para compilação otimizada com
+     * cache.
+     * Este método foi mantido apenas para compatibilidade com código legado.
+     * </p>
      *
-     * <p><b>Thread:</b> MAIN THREAD (PlaceholderAPI requirement)</p>
+     * <p>
+     * <b>Thread:</b> MAIN THREAD (PlaceholderAPI requirement)
+     * </p>
      *
-     * @param player Jogador alvo (para placeholders, pode ser null)
+     * @param player  Jogador alvo (para placeholders, pode ser null)
      * @param context Contexto com placeholders adicionais
      * @return ItemStack compilado (sem cache)
      * @deprecated Use ItemCompiler.compile() para performance otimizada
@@ -153,7 +165,9 @@ public class GuiItem {
     /**
      * Verifica se este item deve ser cacheado.
      *
-     * <p>Itens com placeholders dinâmicos não são cacheados.</p>
+     * <p>
+     * Itens com placeholders dinâmicos não são cacheados.
+     * </p>
      *
      * @return true se cacheable
      */
@@ -267,11 +281,21 @@ public class GuiItem {
         return amount;
     }
 
+    public List<String> getViewConditions() {
+        return viewConditions;
+    }
+
+    public List<String> getClickConditions() {
+        return clickConditions;
+    }
+
     /**
      * Obtém os handlers de click configurados.
      *
-     * <p>Se clickHandlers não foi definido explicitamente, retorna
-     * ClickHandlers com as actions default (compatibilidade).</p>
+     * <p>
+     * Se clickHandlers não foi definido explicitamente, retorna
+     * ClickHandlers com as actions default (compatibilidade).
+     * </p>
      *
      * @return ClickHandlers nunca null
      */
@@ -297,9 +321,9 @@ public class GuiItem {
      * Head texture type.
      */
     public enum HeadType {
-        SELF,      // Player próprio
-        PLAYER,    // Outro player (por nome)
-        BASE64     // Texture base64
+        SELF, // Player próprio
+        PLAYER, // Outro player (por nome)
+        BASE64 // Texture base64
     }
 
     /**
@@ -326,6 +350,8 @@ public class GuiItem {
         private boolean cacheable = true;
         private List<String> dynamicPlaceholders = new ArrayList<>();
         private int amount = 1;
+        private List<String> viewConditions = new ArrayList<>();
+        private List<String> clickConditions = new ArrayList<>();
         private ClickHandlers clickHandlers = null;
         private ClickHandlers.Builder clickHandlersBuilder = null;
 
@@ -451,6 +477,16 @@ public class GuiItem {
 
         public Builder amount(int amount) {
             this.amount = Math.max(1, Math.min(64, amount));
+            return this;
+        }
+
+        public Builder viewConditions(List<String> conditions) {
+            this.viewConditions = new ArrayList<>(conditions);
+            return this;
+        }
+
+        public Builder clickConditions(List<String> conditions) {
+            this.clickConditions = new ArrayList<>(conditions);
             return this;
         }
 

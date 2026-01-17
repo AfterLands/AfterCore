@@ -16,20 +16,24 @@ import java.util.stream.Collectors;
 /**
  * Advanced tab-completion handler with caching and type-aware suggestions.
  *
- * <p>This completer provides:</p>
+ * <p>
+ * This completer provides:
+ * </p>
  * <ul>
- *   <li>Subcommand completion (filtered by permission)</li>
- *   <li>Argument completion by type (player, world, enum, etc.)</li>
- *   <li>Flag completion (--help, --force, etc.)</li>
- *   <li>Caching of expensive suggestions</li>
- *   <li>Smart partial matching</li>
+ * <li>Subcommand completion (filtered by permission)</li>
+ * <li>Argument completion by type (player, world, enum, etc.)</li>
+ * <li>Flag completion (--help, --force, etc.)</li>
+ * <li>Caching of expensive suggestions</li>
+ * <li>Smart partial matching</li>
  * </ul>
  *
- * <p>Performance characteristics:</p>
+ * <p>
+ * Performance characteristics:
+ * </p>
  * <ul>
- *   <li>Cached completions: O(1) lookup + O(n) filter where n is result size</li>
- *   <li>Uncached completions: Depends on ArgumentType implementation</li>
- *   <li>Target: {@code < 0.5ms} per completion on average</li>
+ * <li>Cached completions: O(1) lookup + O(n) filter where n is result size</li>
+ * <li>Uncached completions: Depends on ArgumentType implementation</li>
+ * <li>Target: {@code < 0.5ms} per completion on average</li>
  * </ul>
  */
 public final class TabCompleter {
@@ -48,9 +52,9 @@ public final class TabCompleter {
      * @param debug        Whether debug mode is enabled
      */
     public TabCompleter(@NotNull CommandGraph graph,
-                        @NotNull ArgumentTypeRegistry typeRegistry,
-                        @NotNull CompletionCache cache,
-                        boolean debug) {
+            @NotNull ArgumentTypeRegistry typeRegistry,
+            @NotNull CompletionCache cache,
+            boolean debug) {
         this.graph = Objects.requireNonNull(graph, "graph");
         this.typeRegistry = Objects.requireNonNull(typeRegistry, "typeRegistry");
         this.cache = Objects.requireNonNull(cache, "cache");
@@ -67,8 +71,8 @@ public final class TabCompleter {
      */
     @NotNull
     public List<String> complete(@NotNull CommandSender sender,
-                                  @NotNull String label,
-                                  @NotNull String[] args) {
+            @NotNull String label,
+            @NotNull String[] args) {
         // Handle empty input
         if (args.length == 0) {
             return List.of();
@@ -77,8 +81,7 @@ public final class TabCompleter {
         // Resolve to find current node
         String[] pathArgs = args.length > 1 ? Arrays.copyOf(args, args.length - 1) : new String[0];
         CommandGraph.ResolutionResult resolution = graph.resolve(
-                concatenate(label, pathArgs)
-        );
+                concatenate(label, pathArgs));
 
         if (!resolution.found()) {
             return List.of();
@@ -148,9 +151,9 @@ public final class TabCompleter {
     }
 
     private List<String> completeArguments(CommandSender sender,
-                                            CommandNode node,
-                                            List<String> currentArgs,
-                                            String partial) {
+            CommandNode node,
+            List<String> currentArgs,
+            String partial) {
         List<CommandSpec.ArgumentSpec> argSpecs = node.arguments();
         if (argSpecs.isEmpty()) {
             return List.of();
@@ -163,7 +166,8 @@ public final class TabCompleter {
         if (argPosition >= argSpecs.size()) {
             // Beyond defined arguments - check if last is greedy
             CommandSpec.ArgumentSpec lastSpec = argSpecs.get(argSpecs.size() - 1);
-            if ("greedyString".equals(lastSpec.type())) {
+            ArgumentType<?> lastType = typeRegistry.get(lastSpec.type());
+            if (lastType != null && lastType.isGreedy()) {
                 // Greedy string - no suggestions
                 return List.of();
             }
@@ -251,7 +255,8 @@ public final class TabCompleter {
     }
 
     private boolean isNumeric(String str) {
-        if (str.length() <= 1) return false;
+        if (str.length() <= 1)
+            return false;
         String test = str.startsWith("-") ? str.substring(1) : str;
         return test.chars().allMatch(c -> Character.isDigit(c) || c == '.');
     }

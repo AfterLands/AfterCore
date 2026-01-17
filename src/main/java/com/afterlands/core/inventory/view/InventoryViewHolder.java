@@ -3,6 +3,7 @@ package com.afterlands.core.inventory.view;
 import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.inventory.InventoryConfig;
 import com.afterlands.core.inventory.InventoryContext;
+import com.afterlands.core.conditions.ConditionContext;
 import com.afterlands.core.inventory.InventoryState;
 import com.afterlands.core.inventory.action.InventoryActionHandler;
 import com.afterlands.core.inventory.animation.AnimationConfig;
@@ -26,6 +27,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+import com.afterlands.core.conditions.ConditionService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +57,7 @@ public class InventoryViewHolder implements Listener {
     private final InventoryContext context;
     private final SchedulerService scheduler;
     private final ItemCompiler itemCompiler;
+    private final ConditionService conditionService;
 
     // Pagination & Tabs
     private final PaginationEngine paginationEngine;
@@ -97,7 +100,8 @@ public class InventoryViewHolder implements Listener {
             @NotNull InventoryActionHandler actionHandler,
             @NotNull DragAndDropHandler dragHandler,
             @NotNull InventoryAnimator animator,
-            @NotNull TitleUpdateSupport titleSupport) {
+            @NotNull TitleUpdateSupport titleSupport,
+            @NotNull ConditionService conditionService) {
         this.plugin = plugin;
         this.player = player;
         this.config = config;
@@ -111,6 +115,7 @@ public class InventoryViewHolder implements Listener {
         this.dragHandler = dragHandler;
         this.animator = animator;
         this.titleSupport = titleSupport;
+        this.conditionService = conditionService;
         this.shared = false;
 
         // Cache initial title
@@ -321,6 +326,22 @@ public class InventoryViewHolder implements Listener {
                 continue;
             }
 
+            // Check view conditions using empty context (placeholders handled by PAPI in
+            // evaluateSync)
+            if (!guiItem.getViewConditions().isEmpty()) {
+                ConditionContext conditionContext = java.util.Collections::emptyMap;
+                boolean canView = true;
+                for (String condition : guiItem.getViewConditions()) {
+                    if (!conditionService.evaluateSync(player, condition, conditionContext)) {
+                        canView = false;
+                        break;
+                    }
+                }
+                if (!canView) {
+                    continue;
+                }
+            }
+
             CompletableFuture<Void> future = itemCompiler.compile(guiItem, player, context)
                     .thenAccept(item -> {
                         if (slot >= 0 && slot < inventory.getSize()) {
@@ -374,8 +395,10 @@ public class InventoryViewHolder implements Listener {
         // Para todas as animações deste inventário
         stopAnimations();
 
-        // Remove from static registry
-        activeHolders.remove(player.getUniqueId());
+        // Remove from static registry ONLY if this holder is still the registered one
+        // This prevents race condition where new holder was registered before old one's
+        // close event
+        activeHolders.remove(player.getUniqueId(), this);
 
         // Cancel any active drag session
         dragHandler.cancelDrag(player.getUniqueId());
@@ -919,6 +942,11 @@ public class InventoryViewHolder implements Listener {
     @NotNull
     public Player getPlayer() {
         return player;
+    }
+
+    @NotNull
+    public Plugin getPlugin() {
+        return plugin;
     }
 
     @NotNull

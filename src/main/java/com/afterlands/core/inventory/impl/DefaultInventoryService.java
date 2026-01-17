@@ -2,6 +2,7 @@ package com.afterlands.core.inventory.impl;
 
 import com.afterlands.core.actions.ActionService;
 import com.afterlands.core.concurrent.SchedulerService;
+import com.afterlands.core.conditions.ConditionService;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.inventory.*;
 import com.afterlands.core.inventory.item.GuiItem;
@@ -51,6 +52,7 @@ public class DefaultInventoryService implements InventoryService {
     private final SchedulerService scheduler;
     private final SqlService sql;
     private final ActionService actionService;
+    private final ConditionService conditionService;
     private final InventoryConfigManager configManager;
     private final InventoryStateManager stateManager;
 
@@ -85,11 +87,13 @@ public class DefaultInventoryService implements InventoryService {
             @NotNull SchedulerService scheduler,
             @NotNull SqlService sql,
             @NotNull ActionService actionService,
+            @NotNull ConditionService conditions,
             @NotNull InventoryConfigManager configManager) {
         this.plugin = plugin;
         this.scheduler = scheduler;
         this.sql = sql;
         this.actionService = actionService;
+        this.conditionService = conditions;
         this.configManager = configManager;
 
         // Phase 2: Initialize cache + compilation pipeline
@@ -105,10 +109,13 @@ public class DefaultInventoryService implements InventoryService {
         // Phase 4: Initialize action and drag handlers
         this.actionHandler = new InventoryActionHandler(
                 actionService,
+                conditionService,
                 placeholderResolver,
                 scheduler,
                 plugin.getLogger(),
                 debug);
+        this.actionHandler.setInventoryService(this); // Inject self reference
+
         this.dragHandler = new DragAndDropHandler(
                 scheduler,
                 actionHandler,
@@ -175,6 +182,26 @@ public class DefaultInventoryService implements InventoryService {
                 });
     }
 
+    @Override
+    public void openInventory(@NotNull Plugin ownerPlugin, @NotNull Player player, @NotNull String inventoryId,
+            @NotNull InventoryContext context) {
+        // Use namespaced ID
+        String namespacedId = resolveNamespacedId(ownerPlugin, inventoryId);
+        openInventory(player, namespacedId, context);
+    }
+
+    /**
+     * Resolves a namespaced inventory ID from plugin and local ID.
+     *
+     * @param ownerPlugin Plugin that owns the inventory
+     * @param localId     Local inventory ID (without namespace)
+     * @return Namespaced ID in format "pluginName:localId"
+     */
+    @NotNull
+    private String resolveNamespacedId(@NotNull Plugin ownerPlugin, @NotNull String localId) {
+        return ownerPlugin.getName() + ":" + localId;
+    }
+
     /**
      * Abre inventário com estado carregado (main thread).
      */
@@ -183,10 +210,21 @@ public class DefaultInventoryService implements InventoryService {
             @NotNull InventoryConfig config,
             @NotNull InventoryContext context,
             @NotNull InventoryState state) {
+        // Determine owner plugin from inventory ID (format: PluginName:InventoryId)
+        Plugin ownerPlugin = this.plugin; // Default to AfterCore
+        String id = config.id();
+        if (id.contains(":")) {
+            String pluginName = id.split(":")[0];
+            Plugin pl = Bukkit.getPluginManager().getPlugin(pluginName);
+            if (pl != null) {
+                ownerPlugin = pl;
+            }
+        }
+
         try {
             // Cria holder (com ItemCompiler para renderização otimizada)
             InventoryViewHolder holder = new InventoryViewHolder(
-                    plugin,
+                    ownerPlugin,
                     player,
                     config,
                     context,
@@ -198,7 +236,8 @@ public class DefaultInventoryService implements InventoryService {
                     actionHandler,
                     dragHandler,
                     animator,
-                    titleSupport);
+                    titleSupport,
+                    conditionService);
 
             // Iniciar title update task se configurado
             if (config.titleUpdateInterval() > 0) {
@@ -211,8 +250,11 @@ public class DefaultInventoryService implements InventoryService {
             // Abre para o player
             holder.open();
 
-            plugin.getLogger().fine("Opened inventory '" + config.id() + "' for " + player.getName());
-        } catch (Exception e) {
+            plugin.getLogger().fine("Opened inventory '" + config.id() + "' owned by " + ownerPlugin.getName() + " for "
+                    + player.getName());
+        } catch (
+
+        Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to create inventory view", e);
         }
     }
@@ -279,7 +321,8 @@ public class DefaultInventoryService implements InventoryService {
                         actionHandler,
                         dragHandler,
                         animator,
-                        titleSupport);
+                        titleSupport,
+                        conditionService);
 
                 // Iniciar title update task se configurado
                 if (config.titleUpdateInterval() > 0) {
@@ -491,6 +534,21 @@ public class DefaultInventoryService implements InventoryService {
         List<InventoryConfig> configs = configManager.loadConfigs(file);
         for (InventoryConfig config : configs) {
             registerInventory(config);
+        }
+        return configs.size();
+    }
+
+    @Override
+    public int registerInventories(@NotNull Plugin ownerPlugin, @NotNull java.io.File file) {
+        if (!file.exists()) {
+            return 0;
+        }
+        List<InventoryConfig> configs = configManager.loadConfigs(file);
+        for (InventoryConfig config : configs) {
+            // Register with namespaced ID
+            String namespacedId = resolveNamespacedId(ownerPlugin, config.id());
+            InventoryConfig namespacedConfig = config.withId(namespacedId);
+            registerInventory(namespacedConfig);
         }
         return configs.size();
     }

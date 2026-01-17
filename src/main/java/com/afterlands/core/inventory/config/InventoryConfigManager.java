@@ -621,6 +621,14 @@ public class InventoryConfigManager {
             builder.animations(itemAnimations);
         }
 
+        // Parse conditions
+        if (section.contains("view-conditions")) {
+            builder.viewConditions(section.getStringList("view-conditions"));
+        }
+        if (section.contains("click-conditions")) {
+            builder.clickConditions(section.getStringList("click-conditions"));
+        }
+
         // TODO: Parse dynamic placeholders
 
         return builder.build();

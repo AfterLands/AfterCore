@@ -54,12 +54,21 @@ public sealed interface CommandNode permits RootNode, SubNode {
     String description();
 
     /**
-     * Gets the usage string for this node.
+     * Gets the usage string for this node (plain, for error messages).
      *
      * @return Usage string, or null to auto-generate
      */
     @Nullable
     String usage();
+
+    /**
+     * Gets the colored usage string for help display.
+     * Falls back to usage() if not specified.
+     *
+     * @return Colored usage string for help, or null
+     */
+    @Nullable
+    String usageHelp();
 
     /**
      * Gets the permission required to execute this node.

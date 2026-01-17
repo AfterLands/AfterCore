@@ -132,7 +132,7 @@ public class PluginRegistry {
 
         // 8. Inventory Framework
         InventoryConfigManager invConfigManager = new InventoryConfigManager(plugin, config);
-        this.inventory = new DefaultInventoryService(plugin, scheduler, sql, actions, invConfigManager);
+        this.inventory = new DefaultInventoryService(plugin, scheduler, sql, actions, conditions, invConfigManager);
     }
 
     public void shutdown() {

@@ -185,7 +185,7 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
             return true;
         }
 
-        // If node is not executable
+        // If node is not executable, show help or usage
         if (!targetNode.isExecutable()) {
             if (targetNode.hasChildren()) {
                 // Show help for commands with subcommands
@@ -198,10 +198,61 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
             return true;
         }
 
-        // Build context and execute
+        // Check for group help request (e.g., /cmd placement help)
+        // This happens when we're at root and remaining has format [<group>, "help",
+        // [page]]
+        if (targetNode == root && remaining.size() >= 2 && "help".equalsIgnoreCase(remaining.get(1))) {
+            String potentialGroup = remaining.get(0).toLowerCase(java.util.Locale.ROOT);
+            if (root.groups().containsKey(potentialGroup)) {
+                int page = 1;
+                if (remaining.size() >= 3) {
+                    try {
+                        page = Integer.parseInt(remaining.get(2));
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+                // Send filtered help for this group
+                helpFormatter.sendGroupHelp(sender, root, label, potentialGroup, page);
+                return true;
+            }
+        }
+
+        // Node is executable - proceed to execute (even if it has children)
         try {
-            CommandContext context = buildContext(sender, label, remaining, targetNode);
+            CommandContext context = buildContext(sender, label, remaining, targetNode, fullPath);
             targetNode.executor().execute(context);
+        } catch (CommandParseException cpe) {
+            // Structured parse error - use translatable messages
+            var parseEx = cpe.parseException();
+            String usage = targetNode.generateUsage(fullPath);
+
+            switch (parseEx.errorType()) {
+                case MISSING_REQUIRED -> {
+                    messages.send(sender, "commands.errors.missing-argument",
+                            "argument", parseEx.argumentName());
+                    messages.send(sender, "commands.usage", "usage", usage);
+                }
+                case INVALID_VALUE -> {
+                    messages.send(sender, "commands.errors.invalid-argument",
+                            "argument", parseEx.argumentName(),
+                            "reason", parseEx.getMessage());
+                    messages.send(sender, "commands.usage", "usage", usage);
+                }
+                case TOO_MANY_ARGS -> {
+                    messages.send(sender, "commands.errors.too-many-arguments",
+                            "details", parseEx.getMessage());
+                    messages.send(sender, "commands.usage", "usage", usage);
+                }
+                case UNKNOWN_TYPE -> {
+                    // Internal error - log and show generic message
+                    logger.warning("[Commands] " + parseEx.getMessage());
+                    messages.send(sender, "errors.internal");
+                }
+                default -> {
+                    messages.sendRaw(sender, "&c" + parseEx.getMessage());
+                    messages.send(sender, "commands.usage", "usage", usage);
+                }
+            }
         } catch (Throwable t) {
             metrics.increment(METRIC_EXEC_FAIL);
             if (t instanceof IllegalArgumentException) {
@@ -243,16 +294,38 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
             return new ResolutionResult(root, List.of());
         }
 
+        // Try to find the longest matching subcommand name
+        // Subcommands can have multi-word names like "animation create"
         CommandNode current = root;
         int consumed = 0;
 
-        for (int i = 0; i < args.length; i++) {
-            SubNode child = current.child(args[i]);
-            if (child == null) {
+        while (consumed < args.length) {
+            SubNode matched = null;
+            int matchedWords = 0;
+
+            for (int endIdx = args.length; endIdx > consumed; endIdx--) {
+                StringBuilder candidateName = new StringBuilder();
+                for (int i = consumed; i < endIdx; i++) {
+                    if (i > consumed)
+                        candidateName.append(" ");
+                    candidateName.append(args[i]);
+                }
+
+                SubNode child = current.child(candidateName.toString());
+                if (child != null) {
+                    matched = child;
+                    matchedWords = endIdx - consumed;
+                    break; // Use the longest match
+                }
+            }
+
+            if (matched == null) {
+                // No child found, stop resolution
                 break;
             }
-            current = child;
-            consumed++;
+
+            current = matched;
+            consumed += matchedWords;
         }
 
         List<String> remaining = consumed < args.length
@@ -291,38 +364,54 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
     }
 
     private void sendUsageHint(CommandSender sender, CommandNode node, String path) {
-        messages.sendRaw(sender, "&7Use &f/" + path + " help &7for a list of subcommands.");
+        messages.send(sender, "commands.help.hint", "command", "/" + path + " help");
     }
 
     private CommandContext buildContext(CommandSender sender, String label, List<String> remaining,
-            CommandNode targetNode) {
-        ParsedArgs.Builder argsBuilder = ParsedArgs.builder();
-        argsBuilder.addAllPositional(remaining);
-
-        // Map positional arguments to named arguments based on ArgumentSpec
+            CommandNode targetNode, String fullPath) throws CommandParseException {
         List<com.afterlands.core.commands.CommandSpec.ArgumentSpec> argSpecs = targetNode.arguments();
-        for (int i = 0; i < argSpecs.size() && i < remaining.size(); i++) {
-            var spec = argSpecs.get(i);
-            if (spec.type().equals("string[]") && i == argSpecs.size() - 1) {
-                // Last argument is a vararg (String[]), consume all remaining
-                String[] varargValue = remaining.subList(i, remaining.size()).toArray(new String[0]);
-                argsBuilder.put(spec.name(), varargValue);
-                break;
-            } else {
-                argsBuilder.put(spec.name(), remaining.get(i));
-            }
+        List<com.afterlands.core.commands.CommandSpec.FlagSpec> flagSpecs = targetNode.flags();
+
+        ParsedArgs parsedArgs;
+        com.afterlands.core.commands.execution.ParsedFlags parsedFlags;
+
+        try {
+            // Use ArgumentParser for proper type conversion
+            var parseResult = argumentParser.parse(sender, remaining, argSpecs, flagSpecs);
+            parsedArgs = parseResult.args();
+            parsedFlags = parseResult.flags();
+        } catch (ArgumentParser.ParseException e) {
+            // Parsing failed - wrap in CommandParseException for structured handling
+            throw new CommandParseException(e);
         }
 
         return CommandContext.builder()
                 .owner(root.owner())
                 .sender(sender)
                 .label(label)
-                .args(argsBuilder.build())
-                .flags(ParsedFlags.empty())
+                .args(parsedArgs)
+                .flags(parsedFlags)
                 .messages(messages)
                 .scheduler(scheduler)
                 .metrics(metrics)
                 .build();
+    }
+
+    /**
+     * Exception wrapper for ArgumentParser.ParseException.
+     * Allows structured error handling in the dispatch method.
+     */
+    private static final class CommandParseException extends Exception {
+        private final ArgumentParser.ParseException parseException;
+
+        CommandParseException(ArgumentParser.ParseException cause) {
+            super(cause);
+            this.parseException = cause;
+        }
+
+        ArgumentParser.ParseException parseException() {
+            return parseException;
+        }
     }
 
     /**

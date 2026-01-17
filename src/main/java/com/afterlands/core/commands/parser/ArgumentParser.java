@@ -12,18 +12,25 @@ import java.util.Objects;
 /**
  * Parses command arguments according to their type specifications.
  *
- * <p>This parser coordinates between ArgReader, ArgumentTypeRegistry, and FlagParser
- * to produce structured ParsedArgs from raw command input. It handles:</p>
+ * <p>
+ * This parser coordinates between ArgReader, ArgumentTypeRegistry, and
+ * FlagParser
+ * to produce structured ParsedArgs from raw command input. It handles:
+ * </p>
  * <ul>
- *   <li>Flag extraction (removes flags from positional args)</li>
- *   <li>Typed argument parsing (string, int, player, etc.)</li>
- *   <li>Default value application</li>
- *   <li>Validation and error messages</li>
+ * <li>Flag extraction (removes flags from positional args)</li>
+ * <li>Typed argument parsing (string, int, player, etc.)</li>
+ * <li>Default value application</li>
+ * <li>Validation and error messages</li>
  * </ul>
  *
- * <p>Performance: O(n) where n is argument count, no allocations in success path.</p>
+ * <p>
+ * Performance: O(n) where n is argument count, no allocations in success path.
+ * </p>
  *
- * <p>Thread Safety: Stateless, thread-safe.</p>
+ * <p>
+ * Thread Safety: Stateless, thread-safe.
+ * </p>
  */
 public final class ArgumentParser {
 
@@ -41,18 +48,19 @@ public final class ArgumentParser {
     /**
      * Parses arguments according to the specification.
      *
-     * @param sender   The command sender (for context-aware parsing like player lookup)
-     * @param args     Raw arguments (after subcommand resolution)
-     * @param argSpecs Argument specifications
+     * @param sender    The command sender (for context-aware parsing like player
+     *                  lookup)
+     * @param args      Raw arguments (after subcommand resolution)
+     * @param argSpecs  Argument specifications
      * @param flagSpecs Flag specifications
      * @return Parse result with typed arguments and flags
      * @throws ParseException if parsing fails
      */
     @NotNull
     public ParseResult parse(@NotNull CommandSender sender,
-                             @NotNull List<String> args,
-                             @NotNull List<CommandSpec.ArgumentSpec> argSpecs,
-                             @NotNull List<CommandSpec.FlagSpec> flagSpecs) throws ParseException {
+            @NotNull List<String> args,
+            @NotNull List<CommandSpec.ArgumentSpec> argSpecs,
+            @NotNull List<CommandSpec.FlagSpec> flagSpecs) throws ParseException {
         Objects.requireNonNull(sender, "sender");
         Objects.requireNonNull(args, "args");
         Objects.requireNonNull(argSpecs, "argSpecs");
@@ -78,38 +86,52 @@ public final class ArgumentParser {
             // Get argument type
             ArgumentType<?> type = typeRegistry.get(typeName);
             if (type == null) {
-                throw new ParseException("Unknown argument type: " + typeName + " for argument: " + argName);
+                throw new ParseException(ParseException.ErrorType.UNKNOWN_TYPE, argName,
+                        "Unknown argument type: " + typeName + " for argument: " + argName);
             }
 
             // Check if we have a value
             if (argIndex >= positionalArgs.size()) {
                 // No more arguments
-                if (spec.optional() && spec.defaultValue() != null && !spec.defaultValue().isEmpty()) {
+                String defaultVal = spec.defaultValue();
+                boolean hasRealDefault = defaultVal != null && !"__NONE__".equals(defaultVal);
+
+                if (spec.optional() && hasRealDefault) {
                     // Use default value
                     try {
-                        ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(sender, ArgReader.parse(spec.defaultValue()));
-                        Object defaultParsed = type.parse(parseCtx, spec.defaultValue());
+                        ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(sender,
+                                ArgReader.parse(defaultVal));
+                        Object defaultParsed = type.parse(parseCtx, defaultVal);
                         parsedArgs.put(argName, defaultParsed);
                     } catch (Exception e) {
                         throw new ParseException("Invalid default value for " + argName + ": " + e.getMessage());
                     }
                 } else if (spec.optional()) {
-                    // Optional with no default - skip
+                    // Optional with no default - skip (will be null)
                     continue;
                 } else {
                     // Required argument missing
-                    throw new ParseException("Missing required argument: " + argName);
+                    throw new ParseException(ParseException.ErrorType.MISSING_REQUIRED, argName, argName);
                 }
             } else {
-                // Parse the argument
-                String raw = positionalArgs.get(argIndex);
-                try {
-                    ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(sender, ArgReader.parse(raw));
-                    Object parsed = type.parse(parseCtx, raw);
-                    parsedArgs.put(argName, parsed);
-                    argIndex++;
-                } catch (Exception e) {
-                    throw new ParseException("Invalid " + argName + ": " + e.getMessage());
+                // Check if this is a greedy type - consume all remaining tokens
+                if (type.isGreedy()) {
+                    List<String> remaining = positionalArgs.subList(argIndex, positionalArgs.size());
+                    String joined = String.join(" ", remaining);
+                    parsedArgs.put(argName, joined);
+                    argIndex = positionalArgs.size(); // Consume all
+                } else {
+                    // Parse the argument normally
+                    String raw = positionalArgs.get(argIndex);
+                    try {
+                        ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(sender, ArgReader.parse(raw));
+                        Object parsed = type.parse(parseCtx, raw);
+                        parsedArgs.put(argName, parsed);
+                        argIndex++;
+                    } catch (Exception e) {
+                        throw new ParseException(ParseException.ErrorType.INVALID_VALUE, argName,
+                                e.getMessage());
+                    }
                 }
             }
         }
@@ -119,7 +141,8 @@ public final class ArgumentParser {
             // Check if last arg is greedy
             if (!argSpecs.isEmpty()) {
                 CommandSpec.ArgumentSpec lastSpec = argSpecs.get(argSpecs.size() - 1);
-                if ("greedyString".equals(lastSpec.type())) {
+                ArgumentType<?> lastType = typeRegistry.get(lastSpec.type());
+                if (lastType != null && lastType.isGreedy()) {
                     // Greedy type - join remaining
                     List<String> remaining = positionalArgs.subList(argIndex, positionalArgs.size());
                     String joined = String.join(" ", remaining);
@@ -129,7 +152,8 @@ public final class ArgumentParser {
             }
 
             // Too many arguments
-            throw new ParseException("Too many arguments (expected " + argSpecs.size() + ", got " + positionalArgs.size() + ")");
+            throw new ParseException(ParseException.ErrorType.TOO_MANY_ARGS, null,
+                    "expected " + argSpecs.size() + ", got " + positionalArgs.size());
         }
 
         return new ParseResult(parsedArgs.build(), flagResult.flags());
@@ -145,8 +169,8 @@ public final class ArgumentParser {
      */
     @NotNull
     public List<String> suggest(@NotNull CommandSender sender,
-                                 @NotNull List<String> args,
-                                 @NotNull List<CommandSpec.ArgumentSpec> argSpecs) {
+            @NotNull List<String> args,
+            @NotNull List<CommandSpec.ArgumentSpec> argSpecs) {
         if (argSpecs.isEmpty()) {
             return List.of();
         }
@@ -184,19 +208,48 @@ public final class ArgumentParser {
      */
     public record ParseResult(
             @NotNull ParsedArgs args,
-            @NotNull com.afterlands.core.commands.execution.ParsedFlags flags
-    ) {}
+            @NotNull com.afterlands.core.commands.execution.ParsedFlags flags) {
+    }
 
     /**
      * Exception thrown when argument parsing fails.
      */
     public static final class ParseException extends Exception {
+        private final ErrorType errorType;
+        private final String argumentName;
+
         public ParseException(String message) {
             super(message);
+            this.errorType = ErrorType.GENERIC;
+            this.argumentName = null;
+        }
+
+        public ParseException(ErrorType errorType, String argumentName, String message) {
+            super(message);
+            this.errorType = errorType;
+            this.argumentName = argumentName;
         }
 
         public ParseException(String message, Throwable cause) {
             super(message, cause);
+            this.errorType = ErrorType.GENERIC;
+            this.argumentName = null;
+        }
+
+        public ErrorType errorType() {
+            return errorType;
+        }
+
+        public String argumentName() {
+            return argumentName;
+        }
+
+        public enum ErrorType {
+            MISSING_REQUIRED,
+            INVALID_VALUE,
+            TOO_MANY_ARGS,
+            UNKNOWN_TYPE,
+            GENERIC
         }
     }
 }

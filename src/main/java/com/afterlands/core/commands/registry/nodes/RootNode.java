@@ -32,13 +32,15 @@ public record RootNode(
         @NotNull Set<String> aliases,
         @Nullable String description,
         @Nullable String usage,
+        @Nullable String usageHelp,
         @Nullable String permission,
         @Nullable String helpPrefix,
         boolean playerOnly,
         @NotNull Map<String, SubNode> children,
         @NotNull List<CommandSpec.ArgumentSpec> arguments,
         @NotNull List<CommandSpec.FlagSpec> flags,
-        @Nullable CompiledExecutor executor) implements CommandNode {
+        @Nullable CompiledExecutor executor,
+        @NotNull Map<String, String> groups) implements CommandNode {
 
     /**
      * Creates a new RootNode with defensive copying.
@@ -51,6 +53,7 @@ public record RootNode(
         children = Map.copyOf(children);
         arguments = List.copyOf(arguments);
         flags = List.copyOf(flags);
+        groups = Map.copyOf(groups);
     }
 
     /**
@@ -105,6 +108,7 @@ public record RootNode(
         private final List<CommandSpec.ArgumentSpec> arguments = new ArrayList<>();
         private final List<CommandSpec.FlagSpec> flags = new ArrayList<>();
         private CompiledExecutor executor;
+        private final Map<String, String> groups = new LinkedHashMap<>();
 
         private Builder(Plugin owner, String name) {
             this.owner = Objects.requireNonNull(owner, "owner");
@@ -202,10 +206,24 @@ public record RootNode(
         }
 
         @NotNull
+        public Builder group(@NotNull String prefix, @NotNull String description) {
+            this.groups.put(prefix.toLowerCase(Locale.ROOT), description);
+            return this;
+        }
+
+        @NotNull
+        public Builder groups(@NotNull Map<String, String> groups) {
+            for (var entry : groups.entrySet()) {
+                this.groups.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getValue());
+            }
+            return this;
+        }
+
+        @NotNull
         public RootNode build() {
             return new RootNode(
-                    owner, name, aliases, description, usage, permission,
-                    helpPrefix, playerOnly, children, arguments, flags, executor);
+                    owner, name, aliases, description, usage, null, permission,
+                    helpPrefix, playerOnly, children, arguments, flags, executor, groups);
         }
     }
 }

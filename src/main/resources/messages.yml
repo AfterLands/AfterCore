@@ -1,27 +1,32 @@
-prefix: "&8[&bAfterCore&8]&r "
+config-version: 1
+prefix: '&b&lAFTERLANDS &8┃ '
 
 errors:
   no-permission: "&cVoce não tem permissão para isso."
-  player-only: "&cEste comando so pode ser usado por jogadores."
-  internal: "&cOcorreu um erro interno. Contate um administrador."
+  player-only: "&cEste comando só pode ser usado por jogadores."
+  internal: '&cOcorreu um erro interno. Contate um administrador.'
 
 commands:
   unknown-subcommand: "&c✖ Subcomando desconhecido: &f{subcommand}"
   usage: "&7Uso: &f{usage}"
+  errors:
+    missing-argument: "&c✖ Argumento obrigatório faltando: &f{argument}"
+    invalid-argument: "&c✖ Argumento inválido &f{argument}&c: &f{reason}"
+    too-many-arguments: "&c✖ Argumentos demais ({details})"
   help:
+    hint: "&7Use &f{command} &7para ver os subcomandos."
     header:
       - " "
       - " &b&l{plugin} &8┃ &fAjuda - &b{command}"
       - " &a[!] &7sub-cmds &8┃ &c<> &7obrigatório &8┃ &d[] &7opcional"
       - " "
     usage: " &7Uso: &f{usage}"
-    subcommand-entry: " &b▪ &f{command} &7- {description}"
+    subcommand-entry: " &b▪ &f{command} &8- &7{description}"
     subcommand-hover: "&a► Clique para sugerir"
     footer:
-      page-indicator: " &7Página &b{current}&7/&b{total}"
+      page-indicator: " &7Página &b{current}&8/&b&l{total}"
       separator: " &8┃"
-      prev-page: " &7⇦ Anterior"
-      prev-hover: "&7Clique para página {page}"
-      next-page: " &7Próxima ⇨"
-      next-hover: "&7Clique para página {page}"
-
+      prev-page: " &7[⇦ Anterior]"
+      prev-hover: "&7► Clique para página {page}"
+      next-page: " &7[Próxima ⇨]"
+      next-hover: "&7► Clique para página {page}"

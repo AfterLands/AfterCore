@@ -141,7 +141,7 @@ public final class DefaultCommandService implements CommandService {
         }
 
         if (debug) {
-            logger.info("[Commands] Processing annotated handler: " + handlerClass.getName());
+            logger.info("[Commands] Registering /" + cmdAnnotation.name() + " from " + owner.getName());
         }
 
         // Auto-register plugin's messages.yml if it exists

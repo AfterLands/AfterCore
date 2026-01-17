@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Formats command help with pagination and clickable text.
@@ -37,28 +36,26 @@ public final class HelpFormatter {
             @NotNull String path, int page) {
         int pageSize = config.getInt("commands.help.page-size", DEFAULT_PAGE_SIZE);
 
-        List<SubNode> visibleChildren = root.children().values().stream()
-                .filter(child -> child.permission() == null || sender.hasPermission(child.permission()))
-                .sorted(Comparator.comparing(SubNode::name))
-                .collect(Collectors.toList());
+        // Build help entries: either groups or individual subcommands
+        List<HelpEntry> entries = buildHelpEntries(sender, root);
 
-        int totalItems = visibleChildren.size();
+        int totalItems = entries.size();
         int totalPages = Math.max(1, (int) Math.ceil(totalItems / (double) pageSize));
         page = Math.max(1, Math.min(page, totalPages));
 
         // Header
         sendHeader(sender, root, path);
 
-        if (visibleChildren.isEmpty()) {
+        if (entries.isEmpty()) {
             String usage = root.generateUsage(path);
             messages.send(sender, "commands.help.usage", "usage", usage);
         } else {
             int startIndex = (page - 1) * pageSize;
             int endIndex = Math.min(startIndex + pageSize, totalItems);
-            List<SubNode> pageItems = visibleChildren.subList(startIndex, endIndex);
+            List<HelpEntry> pageItems = entries.subList(startIndex, endIndex);
 
-            for (SubNode sub : pageItems) {
-                sendSubcommandEntry(sender, path, sub);
+            for (HelpEntry entry : pageItems) {
+                sendHelpEntry(sender, path, entry);
             }
         }
 
@@ -67,6 +64,199 @@ public final class HelpFormatter {
         if (totalPages > 1) {
             sendPaginationFooter(sender, path, page, totalPages);
             messages.sendRaw(sender, " ");
+        }
+    }
+
+    /**
+     * Sends help for a specific command group.
+     * Shows only subcommands that start with the group prefix.
+     *
+     * @param sender      The command sender
+     * @param root        The root command node
+     * @param label       The command label (e.g., "animations")
+     * @param groupPrefix The group prefix (e.g., "placement")
+     * @param page        The page number
+     */
+    public void sendGroupHelp(@NotNull CommandSender sender, @NotNull RootNode root,
+            @NotNull String label, @NotNull String groupPrefix, int page) {
+        int pageSize = config.getInt("commands.help.page-size", DEFAULT_PAGE_SIZE);
+        String groupPath = label + " " + groupPrefix;
+
+        // Build entries for this group only
+        List<HelpEntry> entries = new ArrayList<>();
+        for (SubNode child : root.children().values()) {
+            // Check permission
+            if (child.permission() != null && !sender.hasPermission(child.permission())) {
+                continue;
+            }
+
+            String childName = child.name();
+            // Only include subcommands that start with "groupPrefix "
+            if (childName.startsWith(groupPrefix + " ")) {
+                // Remove the group prefix from the display name
+                String shortName = childName.substring(groupPrefix.length() + 1);
+                entries.add(new HelpEntry(shortName, child.description(), child.usage(), child.usageHelp(), false));
+            }
+        }
+
+        // Sort alphabetically
+        entries.sort(Comparator.comparing(e -> e.name));
+
+        int totalItems = entries.size();
+        int totalPages = Math.max(1, (int) Math.ceil(totalItems / (double) pageSize));
+        page = Math.max(1, Math.min(page, totalPages));
+
+        // Header
+        sendGroupHeader(sender, root, groupPrefix, groupPath);
+
+        if (entries.isEmpty()) {
+            messages.sendRaw(sender, " &7Nenhum subcomando encontrado.");
+        } else {
+            int startIndex = (page - 1) * pageSize;
+            int endIndex = Math.min(startIndex + pageSize, totalItems);
+            List<HelpEntry> pageItems = entries.subList(startIndex, endIndex);
+
+            for (HelpEntry entry : pageItems) {
+                sendHelpEntry(sender, groupPath, entry);
+            }
+        }
+
+        messages.sendRaw(sender, " ");
+        // Footer (only if multiple pages)
+        if (totalPages > 1) {
+            sendPaginationFooter(sender, groupPath, page, totalPages);
+            messages.sendRaw(sender, " ");
+        }
+    }
+
+    private void sendGroupHeader(@NotNull CommandSender sender, @NotNull RootNode root,
+            @NotNull String groupName, @NotNull String path) {
+        String plugin = root.helpPrefix() != null ? root.helpPrefix() : root.name().toUpperCase(Locale.ROOT);
+        String groupDesc = root.groups().getOrDefault(groupName, "");
+
+        List<String> headerLines = List.of(
+                " ",
+                " &b&l{plugin} &8┃ &f{group} &7- {description}",
+                " &c<> &7obrigatório &8┃ &d[] &7opcional",
+                " ");
+
+        for (String line : headerLines) {
+            String formatted = line.replace("{plugin}", plugin)
+                    .replace("{group}", groupName)
+                    .replace("{description}", groupDesc);
+            messages.sendRaw(sender, formatted);
+        }
+    }
+
+    /**
+     * Builds help entries, collapsing groups into single entries.
+     */
+    private List<HelpEntry> buildHelpEntries(@NotNull CommandSender sender, @NotNull RootNode root) {
+        Map<String, String> groups = root.groups();
+        Set<String> groupedPrefixes = groups.keySet();
+        Set<String> processedGroups = new LinkedHashSet<>();
+        List<HelpEntry> entries = new ArrayList<>();
+
+        for (SubNode child : root.children().values()) {
+            // Check permission
+            if (child.permission() != null && !sender.hasPermission(child.permission())) {
+                continue;
+            }
+
+            String childName = child.name();
+
+            // Check if this child belongs to a group
+            String matchedGroup = null;
+            for (String prefix : groupedPrefixes) {
+                if (childName.startsWith(prefix + " ") || childName.equals(prefix)) {
+                    matchedGroup = prefix;
+                    break;
+                }
+            }
+
+            if (matchedGroup != null) {
+                // Add group entry only once
+                if (!processedGroups.contains(matchedGroup)) {
+                    processedGroups.add(matchedGroup);
+                    entries.add(new HelpEntry(
+                            matchedGroup,
+                            groups.get(matchedGroup),
+                            null, // no usage for groups
+                            null, // no usageHelp for groups
+                            true // is group
+                    ));
+                }
+            } else {
+                // Regular subcommand
+                entries.add(new HelpEntry(
+                        childName,
+                        child.description(),
+                        child.usage(),
+                        child.usageHelp(),
+                        false));
+            }
+        }
+
+        // Sort: groups first, then alphabetically
+        entries.sort((a, b) -> {
+            if (a.isGroup != b.isGroup) {
+                return a.isGroup ? -1 : 1;
+            }
+            return a.name.compareTo(b.name);
+        });
+
+        return entries;
+    }
+
+    /**
+     * Represents a help entry (either a group or a subcommand).
+     */
+    private record HelpEntry(String name, String description, String usage, String usageHelp, boolean isGroup) {
+    }
+
+    /**
+     * Sends a single help entry.
+     */
+    private void sendHelpEntry(@NotNull CommandSender sender, @NotNull String path, @NotNull HelpEntry entry) {
+        String baseCommand = "/" + path + " " + entry.name;
+        String displayCommand = baseCommand;
+        String suggestCommand = baseCommand;
+
+        if (entry.isGroup) {
+            // Groups show [!] marker
+            displayCommand += " &a[!]";
+            suggestCommand += " help"; // Suggest help for the group
+        } else if (entry.usageHelp != null && !entry.usageHelp.isEmpty()) {
+            // Use colored usageHelp for display
+            displayCommand += " " + entry.usageHelp;
+            suggestCommand += " " + stripColorCodes(entry.usageHelp);
+        } else if (entry.usage != null && !entry.usage.isEmpty()) {
+            // Fallback to plain usage
+            displayCommand += " " + entry.usage;
+            suggestCommand += " " + stripColorCodes(entry.usage);
+        }
+
+        String description = entry.description != null ? entry.description : "";
+
+        String entryFormat = config.getString("commands.help.subcommand-entry", " &b▪ &f{command} &7- {description}");
+        String hoverText = entry.isGroup
+                ? config.getString("commands.help.group-hover", "&a► Clique para ver subcomandos")
+                : config.getString("commands.help.subcommand-hover", "&a► Clique para sugerir");
+
+        String formatted = entryFormat.replace("{command}", displayCommand).replace("{description}", description);
+
+        if (sender instanceof Player player) {
+            BaseComponent[] components = TextComponent.fromLegacyText(messages.format(formatted));
+            BaseComponent[] hoverComponents = TextComponent.fromLegacyText(messages.format(hoverText));
+
+            for (BaseComponent component : components) {
+                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponents));
+                component.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggestCommand));
+            }
+
+            player.spigot().sendMessage(components);
+        } else {
+            messages.sendRaw(sender, formatted);
         }
     }
 
@@ -84,39 +274,6 @@ public final class HelpFormatter {
 
         for (String line : headerLines) {
             String formatted = line.replace("{plugin}", plugin).replace("{command}", "/" + path);
-            messages.sendRaw(sender, formatted);
-        }
-    }
-
-    private void sendSubcommandEntry(@NotNull CommandSender sender, @NotNull String path, @NotNull SubNode sub) {
-        String baseCommand = "/" + path + " " + sub.name();
-        String displayCommand = baseCommand;
-        String suggestCommand = baseCommand; // For click suggestion (no colors)
-
-        // Append usage hint if available
-        if (sub.usage() != null && !sub.usage().isEmpty()) {
-            displayCommand += " " + sub.usage(); // Keep colors for display
-            suggestCommand += " " + stripColorCodes(sub.usage()); // Strip colors for suggestion
-        }
-        String description = sub.description() != null ? sub.description() : "";
-
-        String entryFormat = config.getString("commands.help.subcommand-entry", " &b▪ &f{command} &7- {description}");
-        String hoverText = config.getString("commands.help.subcommand-hover", "&a► Clique para sugerir");
-
-        String formatted = entryFormat.replace("{command}", displayCommand).replace("{description}", description);
-
-        if (sender instanceof Player player) {
-            // Use sendMessage directly with BaseComponent array - avoids nesting issues
-            BaseComponent[] components = TextComponent.fromLegacyText(messages.format(formatted));
-            BaseComponent[] hoverComponents = TextComponent.fromLegacyText(messages.format(hoverText));
-
-            for (BaseComponent component : components) {
-                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponents));
-                component.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggestCommand));
-            }
-
-            player.spigot().sendMessage(components);
-        } else {
             messages.sendRaw(sender, formatted);
         }
     }

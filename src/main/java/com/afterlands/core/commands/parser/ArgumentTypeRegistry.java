@@ -11,22 +11,28 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Registry for argument type parsers.
  *
- * <p>This registry maintains a mapping from type names to ArgumentType
+ * <p>
+ * This registry maintains a mapping from type names to ArgumentType
  * implementations. It comes pre-populated with standard types and allows
- * plugins to register custom types.</p>
+ * plugins to register custom types.
+ * </p>
  *
- * <p>Standard types:</p>
+ * <p>
+ * Standard types:
+ * </p>
  * <ul>
- *   <li>{@code string} - Single string token</li>
- *   <li>{@code greedyString} / {@code text} - All remaining tokens</li>
- *   <li>{@code integer} / {@code int} - Integer values</li>
- *   <li>{@code double} / {@code number} - Decimal values</li>
- *   <li>{@code boolean} / {@code bool} - Boolean values</li>
- *   <li>{@code playerOnline} / {@code player} - Online players</li>
- *   <li>{@code world} - Worlds</li>
+ * <li>{@code string} - Single string token</li>
+ * <li>{@code greedyString} / {@code text} - All remaining tokens</li>
+ * <li>{@code integer} / {@code int} - Integer values</li>
+ * <li>{@code double} / {@code number} - Decimal values</li>
+ * <li>{@code boolean} / {@code bool} - Boolean values</li>
+ * <li>{@code playerOnline} / {@code player} - Online players</li>
+ * <li>{@code world} - Worlds</li>
  * </ul>
  *
- * <p>Thread Safety: This class is thread-safe.</p>
+ * <p>
+ * Thread Safety: This class is thread-safe.
+ * </p>
  */
 public final class ArgumentTypeRegistry {
 
@@ -60,9 +66,9 @@ public final class ArgumentTypeRegistry {
     /**
      * Registers an argument type with aliases.
      *
-     * @param type    The argument type implementation
-     * @param names   Type names (first is primary)
-     * @param <T>     The parsed type
+     * @param type  The argument type implementation
+     * @param names Type names (first is primary)
+     * @param <T>   The parsed type
      */
     @SafeVarargs
     public final <T> void register(@NotNull ArgumentType<T> type, @NotNull String... names) {
@@ -125,7 +131,7 @@ public final class ArgumentTypeRegistry {
     private void registerDefaults() {
         // String types
         register(StringType.INSTANCE, "string", "str");
-        register(GreedyStringType.INSTANCE, "greedyString", "greedystring", "text", "message");
+        register(GreedyStringType.INSTANCE, "greedyString", "greedystring", "text", "message", "string[]");
 
         // Numeric types
         register(IntegerType.INSTANCE, "integer", "int");

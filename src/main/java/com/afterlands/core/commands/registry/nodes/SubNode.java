@@ -9,27 +9,31 @@ import java.util.*;
 /**
  * Represents a subcommand node (e.g., reload in /mycommand reload).
  *
- * <p>Subcommands can be nested to create command hierarchies like:</p>
+ * <p>
+ * Subcommands can be nested to create command hierarchies like:
+ * </p>
  * <ul>
- *   <li>/admin user add [player]</li>
- *   <li>/admin user remove [player]</li>
- *   <li>/admin config reload</li>
+ * <li>/admin user add [player]</li>
+ * <li>/admin user remove [player]</li>
+ * <li>/admin config reload</li>
  * </ul>
  *
- * <p>This class is immutable and thread-safe.</p>
+ * <p>
+ * This class is immutable and thread-safe.
+ * </p>
  */
 public record SubNode(
         @NotNull String name,
         @NotNull Set<String> aliases,
         @Nullable String description,
         @Nullable String usage,
+        @Nullable String usageHelp,
         @Nullable String permission,
         boolean playerOnly,
         @NotNull Map<String, SubNode> children,
         @NotNull List<CommandSpec.ArgumentSpec> arguments,
         @NotNull List<CommandSpec.FlagSpec> flags,
-        @Nullable CompiledExecutor executor
-) implements CommandNode {
+        @Nullable CompiledExecutor executor) implements CommandNode {
 
     /**
      * Creates a new SubNode with defensive copying.
@@ -63,7 +67,8 @@ public record SubNode(
      * @return A new SubNode
      */
     @NotNull
-    public static SubNode fromSpec(@NotNull CommandSpec.SubcommandSpec spec, @Nullable CommandSpec.CommandExecutor lambda) {
+    public static SubNode fromSpec(@NotNull CommandSpec.SubcommandSpec spec,
+            @Nullable CommandSpec.CommandExecutor lambda) {
         // Recursively build children
         Map<String, SubNode> children = new LinkedHashMap<>();
         for (CommandSpec.SubcommandSpec childSpec : spec.subcommands()) {
@@ -78,13 +83,13 @@ public record SubNode(
                 spec.aliases(),
                 spec.description(),
                 spec.usage(),
+                null, // usageHelp - not available in spec yet
                 spec.permission(),
                 spec.playerOnly(),
                 children,
                 spec.arguments(),
                 spec.flags(),
-                executor
-        );
+                executor);
     }
 
     /**
@@ -119,6 +124,7 @@ public record SubNode(
         private final Set<String> aliases = new LinkedHashSet<>();
         private String description;
         private String usage;
+        private String usageHelp;
         private String permission;
         private boolean playerOnly = false;
         private final Map<String, SubNode> children = new LinkedHashMap<>();
@@ -155,6 +161,12 @@ public record SubNode(
         @NotNull
         public Builder usage(@Nullable String usage) {
             this.usage = usage;
+            return this;
+        }
+
+        @NotNull
+        public Builder usageHelp(@Nullable String usageHelp) {
+            this.usageHelp = usageHelp;
             return this;
         }
 
@@ -217,9 +229,8 @@ public record SubNode(
         @NotNull
         public SubNode build() {
             return new SubNode(
-                    name, aliases, description, usage, permission,
-                    playerOnly, children, arguments, flags, executor
-            );
+                    name, aliases, description, usage, usageHelp, permission,
+                    playerOnly, children, arguments, flags, executor);
         }
     }
 }

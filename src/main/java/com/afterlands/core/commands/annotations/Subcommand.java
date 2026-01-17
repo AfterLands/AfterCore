@@ -73,8 +73,17 @@ public @interface Subcommand {
     String description() default "";
 
     /**
-     * Usage hint shown in help (e.g., "&lt;key&gt; &lt;value...&gt;").
-     * If empty, no usage hint is shown.
+     * Plain usage pattern for error messages (e.g., "&lt;player&gt;
+     * &lt;amount&gt;").
+     * Used in {usage} placeholder in error messages.
+     * If empty, auto-generated from arguments.
      */
     String usage() default "";
+
+    /**
+     * Colored usage hint shown in help (e.g., "&c&lt;player&gt; &d[amount]").
+     * Supports color codes for visual distinction.
+     * If empty, falls back to usage() value.
+     */
+    String usageHelp() default "";
 }

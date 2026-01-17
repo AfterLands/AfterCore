@@ -1,6 +1,7 @@
 package com.afterlands.core.inventory;
 
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -47,6 +48,29 @@ public interface InventoryService {
          * @throws IllegalStateException    se chamado fora da main thread
          */
         void openInventory(@NotNull Player player, @NotNull String inventoryId, @NotNull InventoryContext context);
+
+        /**
+         * Abre um inventário para um player com namespace do plugin.
+         *
+         * <p>
+         * O inventário será buscado com o namespace do plugin (plugin:id).
+         * Use este método para garantir isolamento entre inventários de diferentes
+         * plugins.
+         * </p>
+         *
+         * <p>
+         * <b>Thread:</b> MAIN THREAD ONLY
+         * </p>
+         *
+         * @param plugin      Plugin proprietário do inventário
+         * @param player      Jogador alvo
+         * @param inventoryId ID do inventário (sem namespace)
+         * @param context     Dados de contexto
+         * @throws IllegalArgumentException se inventoryId não existir
+         * @throws IllegalStateException    se chamado fora da main thread
+         */
+        void openInventory(@NotNull Plugin plugin, @NotNull Player player, @NotNull String inventoryId,
+                        @NotNull InventoryContext context);
 
         /**
          * Abre um inventário compartilhado (mesmo estado para múltiplos players).
@@ -231,6 +255,20 @@ public interface InventoryService {
          * @return Número de inventários registrados
          */
         int registerInventories(@NotNull java.io.File file);
+
+        /**
+         * Registra inventários a partir de um arquivo YAML com namespace do plugin.
+         *
+         * <p>
+         * Os inventários serão registrados com namespace do plugin (plugin:id)
+         * para evitar colisões entre plugins que usam o mesmo ID.
+         * </p>
+         *
+         * @param plugin Plugin proprietário dos inventários
+         * @param file   Arquivo YAML contendo seção 'inventories'
+         * @return Número de inventários registrados
+         */
+        int registerInventories(@NotNull Plugin plugin, @NotNull java.io.File file);
 
         /**
          * Registra handler para um tipo de item específico.

@@ -105,6 +105,9 @@ public final class AnnotationProcessor {
         Permission rootPerm = handlerClass.getAnnotation(Permission.class);
         String rootPermission = rootPerm != null ? rootPerm.value() : null;
 
+        // Process command groups
+        Map<String, String> groups = extractGroups(handlerClass);
+
         // Process subcommand methods
         Map<String, SubNode> children = new LinkedHashMap<>();
         CommandNode.CompiledExecutor defaultExecutor = null;
@@ -141,6 +144,7 @@ public final class AnnotationProcessor {
             SubNode subNode = SubNode.builder(subName)
                     .description(subAnnotation.description().isEmpty() ? null : subAnnotation.description())
                     .usage(subAnnotation.usage().isEmpty() ? null : subAnnotation.usage())
+                    .usageHelp(subAnnotation.usageHelp().isEmpty() ? null : subAnnotation.usageHelp())
                     .permission(subPermission)
                     .arguments(signature.arguments)
                     .flags(signature.flags)
@@ -163,7 +167,24 @@ public final class AnnotationProcessor {
                 .arguments(rootArgs)
                 .flags(rootFlags)
                 .executor(defaultExecutor)
+                .groups(groups)
                 .build();
+    }
+
+    /**
+     * Extracts command groups from @CommandGroup annotations.
+     */
+    @NotNull
+    private Map<String, String> extractGroups(@NotNull Class<?> handlerClass) {
+        Map<String, String> groups = new LinkedHashMap<>();
+
+        // Check for repeatable @CommandGroup annotations
+        CommandGroup[] groupAnnotations = handlerClass.getAnnotationsByType(CommandGroup.class);
+        for (CommandGroup group : groupAnnotations) {
+            groups.put(group.prefix().toLowerCase(Locale.ROOT), group.description());
+        }
+
+        return groups;
     }
 
     /**
@@ -203,8 +224,11 @@ public final class AnnotationProcessor {
         Arg arg = param.getAnnotation(Arg.class);
         String name = arg.value().isEmpty() ? param.getName() : arg.value();
         String typeName = inferTypeName(param.getType());
-        String defaultValue = arg.defaultValue().isEmpty() ? null : arg.defaultValue();
-        boolean optional = !arg.defaultValue().isEmpty();
+
+        String annotationDefault = arg.defaultValue();
+        boolean isNone = Arg.NONE.equals(annotationDefault);
+        String defaultValue = isNone ? null : annotationDefault;
+        boolean optional = arg.optional() || defaultValue != null;
         String description = arg.description().isEmpty() ? null : arg.description();
 
         return new CommandSpec.ArgumentSpec(name, typeName, defaultValue, optional, description);
