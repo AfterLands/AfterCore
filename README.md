@@ -64,10 +64,17 @@ mvn clean package
 
 ### Dependency (Maven)
 ```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
 <dependency>
     <groupId>com.afterlands</groupId>
-    <artifactId>aftercore</artifactId>
-    <version>1.3.1</version>
+    <artifactId>AfterCore</artifactId>
+    <version>1.5.1</version>
     <scope>provided</scope>
 </dependency>
 ```
