@@ -5,6 +5,58 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-01-24
+ 
+ ### Added (MessageService)
+ - **Message Reloading Support**: Novo método `reloadMessages(Plugin)` na API
+   - Permite que plugins externos solicitem o recarregamento de suas mensagens
+   - Invalida cache interno no `DefaultMessageService`
+   - Essencial para comandos de `reload` funcionarem corretamente com mensagens cacheadas
+
+ - **Plugin-Specific Messages API**: `core.messages(Plugin)`
+   - Permite obter um `MessageService` isolado para um plugin específico
+   - Lê do `messages.yml` do plugin alvo (não do AfterCore)
+   - Abstração padronizada para envio de mensagens com suporte a placeholders e listas
+   - Comentário: Essencial para que plugins do ecossistema usem a infraestrutura do Core sem acoplamento direto
+ 
+ ## [1.5.0] - 2026-01-23 (Holograms Update)
+
+### Added (HologramService)
+- **HologramService**: Novo serviço para criar e gerenciar hologramas via DecentHolograms API
+  - `HologramService` interface principal com detecção de disponibilidade
+  - `PluginHologramHandle` handle com escopo por plugin (namespacing automático)
+  - Click handlers para interação via código (`onClick()`)
+  - Suporte a hologramas individuais por jogador (`createForPlayer()`)
+
+- **Plugin Namespacing**: Todos os hologramas são prefixados automaticamente com o nome do plugin
+  - Evita conflitos de nomes entre plugins
+  - Ex: Plugin "Shop" cria "npc" → nome interno "shop_npc"
+
+- **Visibility Control**: Controle granular de visibilidade
+  - `setDefaultVisible(false)`: Holograma invisível por padrão
+  - `showTo(player)`: Mostra para player específico
+  - `hideFrom(player)`: Esconde de player específico
+
+- **Click Event Integration**: Handlers de clique com contexto completo
+  - `HologramClickContext` record com player, click type, page index
+  - Suporte a LEFT, RIGHT, SHIFT_LEFT, SHIFT_RIGHT
+  - Integração direta com ActionService (futuro)
+
+### Changed
+- `AfterCoreAPI` agora expõe `holograms()` para acesso ao serviço
+- `plugin.yml` atualizado com softdepend DecentHolograms
+
+### Compatibility
+- **100% Opcional**: Se DecentHolograms não instalado, `NoOpHologramService` é usado
+  - `isAvailable()` retorna false
+  - Todas as operações silenciosamente retornam false/null
+  - Nenhum erro é lançado
+
+### Documentation
+- Novo `HologramService.md` na wiki com exemplos completos
+- API Reference com tabelas de métodos
+
+
 ## [1.4.3] - 2026-01-22
 
 ### Added (Database)

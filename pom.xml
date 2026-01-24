@@ -6,7 +6,7 @@
 
     <groupId>com.afterlands</groupId>
     <artifactId>AfterCore</artifactId>
-    <version>1.4.3</version>
+    <version>1.5.1</version>
     <packaging>jar</packaging>
 
     <name>AfterCore</name>
@@ -73,6 +73,15 @@
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
             <version>${placeholderapi.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- DecentHolograms API (optional, provided on server) -->
+        <dependency>
+            <groupId>com.github.decentsoftware-eu</groupId>
+            <artifactId>decentholograms</artifactId>
+            <version>2.9.6</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
@@ -200,29 +209,44 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
-                <executions>
-                    <execution>
-                        <id>copy-to-plugins</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <copy file="${project.build.directory}/${project.build.finalName}.jar"
-                                      todir="C:/Users/icega/OneDrive/Área de Trabalho/AfterCompiled"
-                                      overwrite="true"/>
-                                <echo message="Copied ${project.build.finalName}.jar to compiled plugins folder"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>copia-local-windows</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                </os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>copy-to-plugins</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                                              todir="C:/Users/icega/OneDrive/Área de Trabalho/AfterCompiled"
+                                              overwrite="true"/>
+                                        <echo message="Copied ${project.build.finalName}.jar to compiled plugins folder"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
 

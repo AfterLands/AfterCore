@@ -11,6 +11,7 @@ import com.afterlands.core.config.ConfigService;
 import com.afterlands.core.config.MessageService;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
+import com.afterlands.core.holograms.HologramService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.protocol.ProtocolService;
@@ -59,6 +60,17 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
 
     @Override
     @NotNull
+    public MessageService messages(@NotNull org.bukkit.plugin.Plugin plugin) {
+        return lifecycle.getRegistry().getMessages(plugin);
+    }
+
+    @Override
+    public void reloadMessages(@NotNull org.bukkit.plugin.Plugin plugin) {
+        lifecycle.getRegistry().reloadMessages(plugin);
+    }
+
+    @Override
+    @NotNull
     public SqlService sql() {
         return lifecycle.getRegistry().getSql();
     }
@@ -103,6 +115,12 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
     @NotNull
     public InventoryService inventory() {
         return lifecycle.getRegistry().getInventory();
+    }
+
+    @Override
+    @NotNull
+    public HologramService holograms() {
+        return lifecycle.getRegistry().getHolograms();
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.afterlands.core.config.MessageService;
 import com.afterlands.core.database.SqlDataSource;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
+import com.afterlands.core.holograms.HologramService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.protocol.ProtocolService;
@@ -35,6 +36,34 @@ public interface AfterCoreAPI {
     @NotNull
     MessageService messages();
 
+    /**
+     * Obtém o serviço de mensagens para um plugin específico.
+     *
+     * <p>
+     * Garante que as mensagens sejam buscadas no arquivo 'messages.yml'
+     * do plugin informado, e não no do AfterCore.
+     * </p>
+     *
+     * @param plugin Plugin dono das mensagens
+     * @return MessageService configurado para o plugin
+     * @since 1.5.0
+     */
+    @NotNull
+    MessageService messages(@NotNull org.bukkit.plugin.Plugin plugin);
+
+    /**
+     * Recarrega o serviço de mensagens de um plugin.
+     * 
+     * <p>
+     * Força a leitura do arquivo 'messages.yml' do disco na próxima chamada
+     * de {@link #messages(org.bukkit.plugin.Plugin)}.
+     * </p>
+     * 
+     * @param plugin Plugin alvo
+     * @since 1.5.1
+     */
+    void reloadMessages(@NotNull org.bukkit.plugin.Plugin plugin);
+
     @NotNull
     SqlService sql();
 
@@ -48,7 +77,7 @@ public interface AfterCoreAPI {
      * @param name nome do datasource (ex: "default", "analytics")
      * @return SqlDataSource para o nome especificado
      * @throws IllegalStateException se o datasource não existir
-     * @since 2.0.0
+     * @since 1.4.0
      */
     default @NotNull SqlDataSource sql(@NotNull String name) {
         return sql().datasource(name);
@@ -74,6 +103,20 @@ public interface AfterCoreAPI {
 
     @NotNull
     InventoryService inventory();
+
+    /**
+     * Serviço para criar e gerenciar hologramas.
+     *
+     * <p>
+     * Usa DecentHolograms API por baixo. Se o DecentHolograms
+     * não estiver instalado, retorna uma implementação no-op.
+     * </p>
+     *
+     * @return HologramService para criar hologramas
+     * @since 1.5.0
+     */
+    @NotNull
+    HologramService holograms();
 
     /**
      * Executa uma action em um player.

@@ -26,6 +26,9 @@ import com.afterlands.core.database.SqlService;
 import com.afterlands.core.database.impl.HikariSqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.diagnostics.impl.DefaultDiagnosticsService;
+import com.afterlands.core.holograms.DefaultHologramService;
+import com.afterlands.core.holograms.HologramService;
+import com.afterlands.core.holograms.NoOpHologramService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.inventory.config.InventoryConfigManager;
 import com.afterlands.core.inventory.impl.DefaultInventoryService;
@@ -34,6 +37,7 @@ import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.metrics.impl.DefaultMetricsService;
 import com.afterlands.core.protocol.ProtocolService;
 import com.afterlands.core.protocol.impl.DefaultProtocolService;
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
@@ -65,10 +69,36 @@ public class PluginRegistry {
     private DiagnosticsService diagnostics;
     private MetricsService metrics;
     private InventoryService inventory;
+    private HologramService holograms;
+
+    private final java.util.Map<org.bukkit.plugin.Plugin, MessageService> pluginMessageServices = new java.util.HashMap<>();
 
     public PluginRegistry(AfterCorePlugin plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
+    }
+
+    public synchronized MessageService getMessages(org.bukkit.plugin.Plugin targetPlugin) {
+        if (targetPlugin.equals(plugin)) {
+            return messages;
+        }
+        return pluginMessageServices.computeIfAbsent(targetPlugin, p -> {
+            boolean debug = p.getConfig().getBoolean("debug", false);
+            // Create a dedicated ConfigService for the target plugin
+            ConfigService pluginConfig = new DefaultConfigService(p, debug);
+            // Create MessageService bound to that config
+            return new DefaultMessageService(p, pluginConfig, debug);
+        });
+    }
+
+    public synchronized void reloadMessages(org.bukkit.plugin.Plugin targetPlugin) {
+        // Removing from cache will force re-creation on next access
+        pluginMessageServices.remove(targetPlugin);
+        if (targetPlugin.equals(plugin)) {
+            saveDefaultMessages();
+            updateConfigFile("messages.yml");
+            this.messages = new DefaultMessageService(plugin, config, plugin.getConfig().getBoolean("debug", false));
+        }
     }
 
     public void initialize() {
@@ -142,9 +172,24 @@ public class PluginRegistry {
         InventoryConfigManager invConfigManager = new InventoryConfigManager(plugin, config);
         this.inventory = new DefaultInventoryService(plugin, scheduler, sql, actions, actionExecutor, conditions,
                 invConfigManager);
+
+        // 9. Holograms (optional - checks if DecentHolograms is installed)
+        if (Bukkit.getPluginManager().getPlugin("DecentHolograms") != null) {
+            this.holograms = new DefaultHologramService(plugin, logger, debug);
+            logger.info("[AfterCore] DecentHolograms detected - HologramService enabled");
+        } else {
+            this.holograms = new NoOpHologramService(logger);
+            logger.info("[AfterCore] DecentHolograms not found - HologramService disabled");
+        }
     }
 
     public void shutdown() {
+        if (holograms != null && holograms instanceof DefaultHologramService) {
+            try {
+                ((DefaultHologramService) holograms).shutdown();
+            } catch (Throwable ignored) {
+            }
+        }
         if (commands != null) {
             try {
                 commands.unregisterAll();
@@ -300,6 +345,10 @@ public class PluginRegistry {
 
     public InventoryService getInventory() {
         return inventory;
+    }
+
+    public HologramService getHolograms() {
+        return holograms;
     }
 
     public AfterCorePlugin getPlugin() {
