@@ -22,7 +22,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Implementação unificada (inspirada no ConditionEngine do AfterBlockState, com operadores do AfterMotion).
+ * Implementação unificada (inspirada no ConditionEngine do AfterBlockState, com
+ * operadores do AfterMotion).
  */
 public final class DefaultConditionService implements ConditionService {
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("%([^%]+)%");
@@ -67,11 +68,11 @@ public final class DefaultConditionService implements ConditionService {
             Class<?> papi = Class.forName("me.clip.placeholderapi.PlaceholderAPI");
             setPlaceholdersMethod = papi.getMethod("setPlaceholders", org.bukkit.OfflinePlayer.class, String.class);
             placeholderApiAvailable = true;
-            logger.info("[AfterCore] PlaceholderAPI enabled");
+            logger.info("PlaceholderAPI enabled");
         } catch (Exception e) {
             placeholderApiAvailable = false;
             setPlaceholdersMethod = null;
-            logger.log(Level.WARNING, "[AfterCore] Falha ao iniciar PlaceholderAPI (reflection)", e);
+            logger.log(Level.WARNING, "Falha ao iniciar PlaceholderAPI (reflection)", e);
         }
     }
 
@@ -80,7 +81,8 @@ public final class DefaultConditionService implements ConditionService {
         conditionGroups.clear();
         conditionGroups.putAll(groups);
         expansionCache.invalidateAll();
-        if (debug) logger.info("[AfterCore] conditionGroups=" + groups.size());
+        if (debug)
+            logger.info("conditionGroups=" + groups.size());
     }
 
     @Override
@@ -104,28 +106,32 @@ public final class DefaultConditionService implements ConditionService {
             String resolved = resolvePlaceholderApiIfNeeded(player, expanded);
             boolean result = evaluateExpression(resolved);
             if (debug) {
-                logger.info("[AfterCore][Condition] " + player.getName() + " | " + expression + " -> " + resolved + " = " + result);
+                logger.info("[AfterCore][Condition] " + player.getName() + " | " + expression + " -> " + resolved
+                        + " = " + result);
             }
             return result;
         } catch (Exception e) {
-            logger.log(Level.WARNING, "[AfterCore] Erro avaliando condição: " + expression, e);
+            logger.log(Level.WARNING, "Erro avaliando condição: " + expression, e);
             return false;
         }
     }
 
     @Override
-    public @NotNull CompletableFuture<Boolean> evaluate(@NotNull Player player, @NotNull String expression, @NotNull ConditionContext ctx) {
+    public @NotNull CompletableFuture<Boolean> evaluate(@NotNull Player player, @NotNull String expression,
+            @NotNull ConditionContext ctx) {
         if (!placeholderApiAvailable) {
             return CompletableFuture.completedFuture(evaluateSync(player, expression, ctx));
         }
         // PlaceholderAPI deve rodar na main thread.
-        return scheduler.runSync(() -> {}).thenApply(v -> evaluateSync(player, expression, ctx));
+        return scheduler.runSync(() -> {
+        }).thenApply(v -> evaluateSync(player, expression, ctx));
     }
 
     private String expandAndResolveCustom(Player player, String expression, ConditionContext ctx) {
         String cacheKey = expression + "|" + System.identityHashCode(ctx);
         String cached = expansionCache.getIfPresent(cacheKey);
-        if (cached != null) return cached;
+        if (cached != null)
+            return cached;
 
         String expanded = expandGroups(expression);
         String resolvedCustom = resolveCustomVariables(player, expanded, ctx);
@@ -143,7 +149,8 @@ public final class DefaultConditionService implements ConditionService {
 
         for (Map.Entry<String, List<String>> entry : conditionGroups.entrySet()) {
             String name = entry.getKey();
-            if (!result.contains(name)) continue;
+            if (!result.contains(name))
+                continue;
             List<String> lines = entry.getValue();
             String replacement = lines.size() == 1 ? lines.get(0) : "(" + String.join(" AND ", lines) + ")";
             result = result.replace(name, replacement);
@@ -195,7 +202,8 @@ public final class DefaultConditionService implements ConditionService {
             String resolved = result != null ? result.toString() : text;
             return resolveBasicPlaceholders(resolved, player);
         } catch (Exception e) {
-            if (debug) logger.warning("[AfterCore] PlaceholderAPI error: " + e.getMessage());
+            if (debug)
+                logger.warning("PlaceholderAPI error: " + e.getMessage());
             return resolveBasicPlaceholders(text, player);
         }
     }
@@ -231,7 +239,8 @@ public final class DefaultConditionService implements ConditionService {
 
     private boolean evaluateExpression(@NotNull String expression) {
         String exp = expression.trim();
-        if (exp.isEmpty()) return true;
+        if (exp.isEmpty())
+            return true;
 
         // NOT prefix (case-insensitive)
         if (exp.regionMatches(true, 0, "NOT ", 0, 4)) {
@@ -254,7 +263,8 @@ public final class DefaultConditionService implements ConditionService {
         if (containsOperator(exp, " OR ")) {
             String[] parts = splitOperator(exp, " OR ");
             for (String p : parts) {
-                if (evaluateExpression(p)) return true;
+                if (evaluateExpression(p))
+                    return true;
             }
             return false;
         }
@@ -263,14 +273,17 @@ public final class DefaultConditionService implements ConditionService {
         if (containsOperator(exp, " AND ")) {
             String[] parts = splitOperator(exp, " AND ");
             for (String p : parts) {
-                if (!evaluateExpression(p)) return false;
+                if (!evaluateExpression(p))
+                    return false;
             }
             return true;
         }
 
         // boolean literals
-        if ("true".equalsIgnoreCase(exp)) return true;
-        if ("false".equalsIgnoreCase(exp)) return false;
+        if ("true".equalsIgnoreCase(exp))
+            return true;
+        if ("false".equalsIgnoreCase(exp))
+            return false;
 
         // comparison
         ConditionComparison comparison = ConditionComparison.parse(exp);
@@ -283,9 +296,11 @@ public final class DefaultConditionService implements ConditionService {
     }
 
     private boolean isTruthy(String value) {
-        if (value == null) return false;
+        if (value == null)
+            return false;
         String v = value.trim().toLowerCase(Locale.ROOT);
-        if (v.isEmpty()) return false;
+        if (v.isEmpty())
+            return false;
         return v.equals("yes") || v.equals("true") || v.equals("1");
     }
 
@@ -297,8 +312,10 @@ public final class DefaultConditionService implements ConditionService {
 
         for (int i = 0; i <= expression.length() - opLen; i++) {
             char c = expression.charAt(i);
-            if (c == '(') depth++;
-            else if (c == ')') depth--;
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
             else if (depth == 0 && upper.substring(i, i + opLen).equals(opUpper)) {
                 return true;
             }
@@ -316,8 +333,10 @@ public final class DefaultConditionService implements ConditionService {
 
         for (int i = 0; i <= expression.length() - opLen; i++) {
             char c = expression.charAt(i);
-            if (c == '(') depth++;
-            else if (c == ')') depth--;
+            if (c == '(')
+                depth++;
+            else if (c == ')')
+                depth--;
             else if (depth == 0 && upper.substring(i, i + opLen).equals(opUpper)) {
                 parts.add(expression.substring(last, i));
                 last = i + opLen;
@@ -327,4 +346,3 @@ public final class DefaultConditionService implements ConditionService {
         return parts.toArray(new String[0]);
     }
 }
-

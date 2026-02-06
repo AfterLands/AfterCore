@@ -1,5 +1,6 @@
 package com.afterlands.core;
 
+import com.afterlands.core.actions.ActionExecutor;
 import com.afterlands.core.actions.ActionService;
 import com.afterlands.core.actions.ActionSpec;
 import com.afterlands.core.api.AfterCoreAPI;
@@ -17,6 +18,7 @@ import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.protocol.ProtocolService;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -60,12 +62,12 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
 
     @Override
     @NotNull
-    public MessageService messages(@NotNull org.bukkit.plugin.Plugin plugin) {
+    public MessageService messages(@NotNull Plugin plugin) {
         return lifecycle.getRegistry().getMessages(plugin);
     }
 
     @Override
-    public void reloadMessages(@NotNull org.bukkit.plugin.Plugin plugin) {
+    public void reloadMessages(@NotNull Plugin plugin) {
         lifecycle.getRegistry().reloadMessages(plugin);
     }
 
@@ -137,7 +139,7 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
      * Retorna o ActionExecutor (para uso interno e plugins dependentes).
      */
     @NotNull
-    public com.afterlands.core.actions.ActionExecutor actionExecutor() {
+    public ActionExecutor actionExecutor() {
         return lifecycle.getRegistry().getActionExecutor();
     }
 }

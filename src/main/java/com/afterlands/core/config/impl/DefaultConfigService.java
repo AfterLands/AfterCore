@@ -7,6 +7,13 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
+
+import com.afterlands.core.config.update.ConfigUpdater;
+import org.jetbrains.annotations.Nullable;
 
 public final class DefaultConfigService implements ConfigService {
 
@@ -46,7 +53,7 @@ public final class DefaultConfigService implements ConfigService {
         File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
         this.messages = YamlConfiguration.loadConfiguration(messagesFile);
         if (debug) {
-            plugin.getLogger().info("[AfterCore] Config reloadAll OK");
+            plugin.getLogger().info("Config reloadAll OK");
         }
     }
 
@@ -57,13 +64,13 @@ public final class DefaultConfigService implements ConfigService {
 
     @Override
     public boolean update(@NotNull Plugin targetPlugin, @NotNull String resourceName,
-            @org.jetbrains.annotations.Nullable java.util.function.Consumer<com.afterlands.core.config.update.ConfigUpdater> options) {
+            @Nullable Consumer<ConfigUpdater> options) {
 
         // Validação básica
-        java.io.InputStream defaultStream = targetPlugin.getResource(resourceName);
+        InputStream defaultStream = targetPlugin.getResource(resourceName);
         if (defaultStream == null) {
             if (debug)
-                plugin.getLogger().warning("[AfterCore] Recurso não encontrado no JAR do plugin alvo: " + resourceName);
+                plugin.getLogger().warning("Recurso não encontrado no JAR do plugin alvo: " + resourceName);
             return false;
         }
 
@@ -76,11 +83,11 @@ public final class DefaultConfigService implements ConfigService {
         // Fluxo completo do ConfigUpdater
         YamlConfiguration currentConfig = YamlConfiguration.loadConfiguration(configFile);
         YamlConfiguration defaultConfig = YamlConfiguration.loadConfiguration(
-                new java.io.InputStreamReader(defaultStream, java.nio.charset.StandardCharsets.UTF_8));
+                new InputStreamReader(defaultStream, StandardCharsets.UTF_8));
 
-        java.io.InputStream mergeStream = targetPlugin.getResource(resourceName);
+        InputStream mergeStream = targetPlugin.getResource(resourceName);
 
-        com.afterlands.core.config.update.ConfigUpdater updater = new com.afterlands.core.config.update.ConfigUpdater(
+        ConfigUpdater updater = new ConfigUpdater(
                 targetPlugin.getLogger(), configFile);
 
         return updater.update(currentConfig, mergeStream, defaultConfig, options);

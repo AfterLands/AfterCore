@@ -1,13 +1,14 @@
 package com.afterlands.core.inventory.impl;
 
+import com.afterlands.core.actions.ActionExecutor;
 import com.afterlands.core.actions.ActionService;
 import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.conditions.ConditionService;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.inventory.*;
-import com.afterlands.core.inventory.item.GuiItem;
 import com.afterlands.core.inventory.action.InventoryActionHandler;
 import com.afterlands.core.inventory.animation.InventoryAnimator;
+import com.afterlands.core.inventory.click.ClickHandler;
 import com.afterlands.core.inventory.cache.ItemCache;
 import com.afterlands.core.inventory.config.InventoryConfigManager;
 import com.afterlands.core.inventory.drag.DragAndDropHandler;
@@ -22,11 +23,13 @@ import com.afterlands.core.inventory.template.DefaultItemTemplateService;
 import com.afterlands.core.inventory.template.ItemTemplateService;
 import com.afterlands.core.inventory.view.InventoryViewHolder;
 import com.afterlands.core.inventory.InventoryConfig;
+import com.afterlands.core.config.MessageService;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +56,7 @@ public class DefaultInventoryService implements InventoryService {
     private final SqlService sql;
     private final ActionService actionService;
     private final ConditionService conditionService;
+    private final MessageService messageService;
     private final InventoryConfigManager configManager;
     private final InventoryStateManager stateManager;
 
@@ -87,20 +91,22 @@ public class DefaultInventoryService implements InventoryService {
             @NotNull SchedulerService scheduler,
             @NotNull SqlService sql,
             @NotNull ActionService actionService,
-            @NotNull com.afterlands.core.actions.ActionExecutor actionExecutor,
+            @NotNull ActionExecutor actionExecutor,
             @NotNull ConditionService conditions,
+            @NotNull MessageService messageService,
             @NotNull InventoryConfigManager configManager) {
         this.plugin = plugin;
         this.scheduler = scheduler;
         this.sql = sql;
         this.actionService = actionService;
         this.conditionService = conditions;
+        this.messageService = messageService;
         this.configManager = configManager;
 
         // Phase 2: Initialize cache + compilation pipeline
         boolean debug = plugin.getConfig().getBoolean("debug", false);
         this.itemCache = new ItemCache(plugin.getLogger(), debug);
-        this.placeholderResolver = new PlaceholderResolver(scheduler, debug);
+        this.placeholderResolver = new PlaceholderResolver(scheduler, messageService, debug);
         this.itemCompiler = new ItemCompiler(scheduler, itemCache, placeholderResolver, plugin.getLogger(), debug);
 
         // Phase 3: Initialize pagination + tabs
@@ -529,7 +535,7 @@ public class DefaultInventoryService implements InventoryService {
     }
 
     @Override
-    public int registerInventories(@NotNull java.io.File file) {
+    public int registerInventories(@NotNull File file) {
         if (!file.exists()) {
             return 0;
         }
@@ -541,7 +547,7 @@ public class DefaultInventoryService implements InventoryService {
     }
 
     @Override
-    public int registerInventories(@NotNull Plugin ownerPlugin, @NotNull java.io.File file) {
+    public int registerInventories(@NotNull Plugin ownerPlugin, @NotNull File file) {
         if (!file.exists()) {
             return 0;
         }
@@ -557,7 +563,7 @@ public class DefaultInventoryService implements InventoryService {
 
     @Override
     public void registerTypeHandler(@NotNull String itemType,
-            @NotNull com.afterlands.core.inventory.click.ClickHandler handler) {
+            @NotNull ClickHandler handler) {
         actionHandler.registerTypeHandler(itemType, handler);
     }
 

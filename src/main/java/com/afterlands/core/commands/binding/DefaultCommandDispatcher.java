@@ -1,5 +1,6 @@
 package com.afterlands.core.commands.binding;
 
+import com.afterlands.core.commands.CommandSpec;
 import com.afterlands.core.commands.completion.CompletionCache;
 import com.afterlands.core.commands.completion.TabCompleter;
 import com.afterlands.core.commands.execution.CommandContext;
@@ -439,11 +440,11 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
 
     private CommandContext buildContext(CommandSender sender, String label, List<String> remaining,
             CommandNode targetNode, String fullPath) throws CommandParseException {
-        List<com.afterlands.core.commands.CommandSpec.ArgumentSpec> argSpecs = targetNode.arguments();
-        List<com.afterlands.core.commands.CommandSpec.FlagSpec> flagSpecs = targetNode.flags();
+        List<CommandSpec.ArgumentSpec> argSpecs = targetNode.arguments();
+        List<CommandSpec.FlagSpec> flagSpecs = targetNode.flags();
 
         ParsedArgs parsedArgs;
-        com.afterlands.core.commands.execution.ParsedFlags parsedFlags;
+        ParsedFlags parsedFlags;
 
         try {
             // Use ArgumentParser for proper type conversion

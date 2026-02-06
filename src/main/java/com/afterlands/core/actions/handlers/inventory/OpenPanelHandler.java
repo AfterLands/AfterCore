@@ -13,9 +13,14 @@ import java.util.Map;
 /**
  * Handler para abrir painéis/GUIs de outros plugins.
  *
- * <p>Formato: {@code open-panel: <panel_key> [placeholder=value ...]}</p>
+ * <p>
+ * Formato: {@code open-panel: <panel_key> [placeholder=value ...]}
+ * </p>
  *
- * <p>Exemplos:</p>
+ * <p>
+ * Exemplos:
+ * </p>
+ * 
  * <pre>
  * open-panel: main-menu
  * open-panel: animation-list
@@ -23,10 +28,14 @@ import java.util.Map;
  * open-panel: placement-editor placementId=spawn_portal
  * </pre>
  *
- * <p>Este handler dispara um {@link OpenPanelRequestEvent} que outros plugins
- * podem escutar para abrir suas GUIs customizadas.</p>
+ * <p>
+ * Este handler dispara um {@link OpenPanelRequestEvent} que outros plugins
+ * podem escutar para abrir suas GUIs customizadas.
+ * </p>
  *
- * <p><b>Thread:</b> Sempre executa na main thread (garantido pelo ActionExecutor).</p>
+ * <p>
+ * <b>Thread:</b> Sempre executa na main thread (garantido pelo ActionExecutor).
+ * </p>
  */
 public final class OpenPanelHandler implements ActionHandler {
 
@@ -63,7 +72,7 @@ public final class OpenPanelHandler implements ActionHandler {
 
         // Se nenhum listener tratou, logar warning
         if (!event.isHandled()) {
-            Bukkit.getLogger().warning("[AfterCore] No handler found for panel: " + panelKey);
+            Bukkit.getLogger().warning("No handler found for panel: " + panelKey);
         }
     }
 }

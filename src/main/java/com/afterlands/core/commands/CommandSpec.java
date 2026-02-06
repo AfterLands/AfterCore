@@ -1,5 +1,6 @@
 package com.afterlands.core.commands;
 
+import com.afterlands.core.commands.execution.CommandContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -9,18 +10,23 @@ import java.util.function.Consumer;
 /**
  * Specification for building commands via DSL/Builder pattern.
  *
- * <p>This class provides a fluent API for defining commands programmatically
- * as an alternative to annotation-based registration. It supports:</p>
+ * <p>
+ * This class provides a fluent API for defining commands programmatically
+ * as an alternative to annotation-based registration. It supports:
+ * </p>
  * <ul>
- *   <li>Root command configuration (name, aliases, description)</li>
- *   <li>Subcommand hierarchies</li>
- *   <li>Argument definitions</li>
- *   <li>Flag definitions</li>
- *   <li>Permission requirements</li>
- *   <li>Execution handlers</li>
+ * <li>Root command configuration (name, aliases, description)</li>
+ * <li>Subcommand hierarchies</li>
+ * <li>Argument definitions</li>
+ * <li>Flag definitions</li>
+ * <li>Permission requirements</li>
+ * <li>Execution handlers</li>
  * </ul>
  *
- * <p>Example usage:</p>
+ * <p>
+ * Example usage:
+ * </p>
+ * 
  * <pre>{@code
  * CommandSpec spec = CommandSpec.root("mycommand")
  *     .aliases("mc", "mycmd")
@@ -182,7 +188,7 @@ public final class CommandSpec {
         /**
          * Adds a subcommand using a builder callback.
          *
-         * @param name     Subcommand name
+         * @param name       Subcommand name
          * @param subBuilder Callback to configure the subcommand
          * @return This builder
          */
@@ -261,8 +267,7 @@ public final class CommandSpec {
             @NotNull List<SubcommandSpec> subcommands,
             @NotNull List<ArgumentSpec> arguments,
             @NotNull List<FlagSpec> flags,
-            @Nullable CommandExecutor executor
-    ) {
+            @Nullable CommandExecutor executor) {
         public SubcommandSpec {
             aliases = Set.copyOf(aliases);
             subcommands = List.copyOf(subcommands);
@@ -348,8 +353,7 @@ public final class CommandSpec {
             SubcommandSpec build() {
                 return new SubcommandSpec(
                         name, aliases, description, usage, permission, playerOnly,
-                        subcommands, arguments, flags, executor
-                );
+                        subcommands, arguments, flags, executor);
             }
         }
 
@@ -438,8 +442,7 @@ public final class CommandSpec {
             @NotNull String type,
             @Nullable String defaultValue,
             boolean optional,
-            @Nullable String description
-    ) {
+            @Nullable String description) {
         // Common type constants
         public static final String STRING = "string";
         public static final String GREEDY_STRING = "greedyString";
@@ -459,8 +462,8 @@ public final class CommandSpec {
             @NotNull String name,
             @Nullable String shortName,
             @Nullable String valueType,
-            boolean hasValue
-    ) {}
+            boolean hasValue) {
+    }
 
     /**
      * Functional interface for command execution.
@@ -472,6 +475,6 @@ public final class CommandSpec {
          *
          * @param context The command execution context
          */
-        void execute(@NotNull com.afterlands.core.commands.execution.CommandContext context);
+        void execute(@NotNull CommandContext context);
     }
 }

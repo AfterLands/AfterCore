@@ -5,6 +5,15 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] - 2026-02-05
+
+### Changed
+- **MessageFacade**:
+  - Refactored to delegate message sending to `MessageService` for players.
+  - Ensures consistent message handling (placeholders, storage) via the core service.
+  - Removed Fully Qualified Names (FQN) usage.
+  - Implemented lazy proxy in `DefaultMessageService` to auto-detect and delegate to external providers (e.g. AfterLanguage).
+
 ## [1.5.2] - 2026-01-26
 
 ### Fixed (Action System)

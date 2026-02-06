@@ -9,6 +9,8 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -16,27 +18,39 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.bukkit.entity.Player;
+import com.afterlands.core.api.messages.MessageKey;
+import com.afterlands.core.api.messages.Placeholder;
 
 /**
  * Hybrid message facade that resolves messages from plugin-specific configs
  * with fallback to AfterCore defaults.
  *
- * <p>Resolution order:</p>
+ * <p>
+ * Resolution order:
+ * </p>
  * <ol>
- *   <li>Plugin owner's messages.yml (if registered)</li>
- *   <li>AfterCore's messages.yml (fallback)</li>
- *   <li>Default inline message (if provided)</li>
+ * <li>Plugin owner's messages.yml (if registered)</li>
+ * <li>AfterCore's messages.yml (fallback)</li>
+ * <li>Default inline message (if provided)</li>
  * </ol>
  *
- * <p>Placeholder format: {@code {key}} is replaced with the corresponding value.</p>
+ * <p>
+ * Placeholder format: {@code {key}} is replaced with the corresponding value.
+ * </p>
  *
- * <p>Example:</p>
+ * <p>
+ * Example:
+ * </p>
+ * 
  * <pre>{@code
  * messageFacade.send(sender, "commands.usage", "usage", "/mycommand <arg>");
  * // Sends: "Usage: /mycommand <arg>" (if commands.usage = "Usage: {usage}")
  * }</pre>
  *
- * <p>Thread Safety: This class is thread-safe.</p>
+ * <p>
+ * Thread Safety: This class is thread-safe.
+ * </p>
  */
 public final class MessageFacade {
 
@@ -59,21 +73,20 @@ public final class MessageFacade {
             Map.entry("commands.unknown-subcommand", "&cUnknown subcommand: &f{subcommand}"),
             Map.entry("commands.usage", "&eUsage: &f{usage}"),
             Map.entry("commands.help.header", "&6=== Help: &f{command} &6==="),
-            Map.entry("commands.help.line", " &f{command} &7- {description}")
-    );
+            Map.entry("commands.help.line", " &f{command} &7- {description}"));
 
     /**
      * Creates a new MessageFacade.
      *
-     * @param corePlugin  The AfterCore plugin
-     * @param coreConfig  The AfterCore config service
+     * @param corePlugin   The AfterCore plugin
+     * @param coreConfig   The AfterCore config service
      * @param coreMessages The AfterCore message service
-     * @param debug       Whether debug mode is enabled
+     * @param debug        Whether debug mode is enabled
      */
     public MessageFacade(@NotNull Plugin corePlugin,
-                         @NotNull ConfigService coreConfig,
-                         @NotNull MessageService coreMessages,
-                         boolean debug) {
+            @NotNull ConfigService coreConfig,
+            @NotNull MessageService coreMessages,
+            boolean debug) {
         this.corePlugin = Objects.requireNonNull(corePlugin, "corePlugin");
         this.coreConfig = Objects.requireNonNull(coreConfig, "coreConfig");
         this.coreMessages = Objects.requireNonNull(coreMessages, "coreMessages");
@@ -88,7 +101,7 @@ public final class MessageFacade {
      * @param config The plugin's messages configuration
      */
     public void registerPluginMessages(@NotNull Plugin plugin, @NotNull FileConfiguration config) {
-        pluginMessages.put(plugin.getName(), config);
+        pluginMessages.put(plugin.getName().toLowerCase(java.util.Locale.ROOT), config);
         if (debug) {
             logger.info("[Messages] Registered messages for " + plugin.getName());
         }
@@ -100,7 +113,7 @@ public final class MessageFacade {
      * @param plugin The plugin
      */
     public void unregisterPluginMessages(@NotNull Plugin plugin) {
-        pluginMessages.remove(plugin.getName());
+        pluginMessages.remove(plugin.getName().toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -252,15 +265,17 @@ public final class MessageFacade {
     /**
      * Creates a context-specific facade for a plugin.
      *
-     * <p>The returned facade will first check the plugin's messages
-     * before falling back to AfterCore defaults.</p>
+     * <p>
+     * The returned facade will first check the plugin's messages
+     * before falling back to AfterCore defaults.
+     * </p>
      *
      * @param plugin The plugin
      * @return A plugin-specific message facade
      */
     @NotNull
     public PluginMessageFacade forPlugin(@NotNull Plugin plugin) {
-        return new PluginMessageFacade(plugin.getName());
+        return new PluginMessageFacade(plugin.getName().toLowerCase(java.util.Locale.ROOT));
     }
 
     /**
@@ -274,6 +289,13 @@ public final class MessageFacade {
         }
 
         public void send(@NotNull CommandSender sender, @NotNull String path) {
+            if (sender instanceof Player player
+                    && org.bukkit.Bukkit.getPluginManager().isPluginEnabled("AfterLanguage")) {
+                MessageFacade.this.coreMessages.send(player,
+                        MessageKey.of(pluginName, path));
+                return;
+            }
+
             String message = resolve(pluginName, path);
             if (message != null) {
                 sendRaw(sender, message);
@@ -281,6 +303,19 @@ public final class MessageFacade {
         }
 
         public void send(@NotNull CommandSender sender, @NotNull String path, @NotNull Object... placeholders) {
+            if (sender instanceof Player player
+                    && org.bukkit.Bukkit.getPluginManager().isPluginEnabled("AfterLanguage")) {
+                List<Placeholder> phList = new ArrayList<>();
+                for (int i = 0; i < placeholders.length - 1; i += 2) {
+                    phList.add(Placeholder.of(String.valueOf(placeholders[i]),
+                            placeholders[i + 1]));
+                }
+                MessageFacade.this.coreMessages.send(player,
+                        MessageKey.of(pluginName, path),
+                        phList.toArray(new Placeholder[0]));
+                return;
+            }
+
             if (placeholders.length % 2 != 0) {
                 throw new IllegalArgumentException("Placeholders must be key-value pairs");
             }

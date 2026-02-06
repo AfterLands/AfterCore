@@ -4,6 +4,7 @@ import com.afterlands.core.commands.annotations.Arg;
 import com.afterlands.core.commands.annotations.Flag;
 import com.afterlands.core.commands.annotations.Sender;
 import com.afterlands.core.commands.execution.CommandContext;
+import com.afterlands.core.commands.parser.ArgReader;
 import com.afterlands.core.commands.parser.ArgumentType;
 import com.afterlands.core.commands.parser.ArgumentTypeRegistry;
 import org.bukkit.World;
@@ -225,7 +226,7 @@ public final class ParameterInjector {
                     if (argType != null) {
                         ArgumentType.ParseContext parseCtx = ArgumentType.ParseContext.of(
                                 ctx.sender(),
-                                com.afterlands.core.commands.parser.ArgReader.parse(defaultValue));
+                                ArgReader.parse(defaultValue));
                         value = argType.parse(parseCtx, defaultValue);
                     } else {
                         value = defaultValue;

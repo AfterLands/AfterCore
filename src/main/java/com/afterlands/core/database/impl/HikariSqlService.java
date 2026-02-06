@@ -88,7 +88,7 @@ public final class HikariSqlService implements SqlService {
         pendingMigrations.computeIfAbsent(datasourceName, k -> new LinkedHashMap<>()).put(id, migration);
 
         if (debug) {
-            logger.info("[AfterCore] Registered migration '" + id + "' for datasource '" + datasourceName + "'");
+            logger.info("Registered migration '" + id + "' for datasource '" + datasourceName + "'");
         }
 
         // Fix: If datasource is already initialized (e.g. plugin loading late), apply
@@ -119,12 +119,12 @@ public final class HikariSqlService implements SqlService {
         closeAll();
 
         if (section == null) {
-            logger.info("[AfterCore] database: seção ausente (desabilitado)");
+            logger.info("database: seção ausente (desabilitado)");
             return;
         }
 
         if (!section.getBoolean("enabled", true)) {
-            logger.info("[AfterCore] database: disabled");
+            logger.info("database: disabled");
             return;
         }
 
@@ -150,7 +150,7 @@ public final class HikariSqlService implements SqlService {
         // Aplica migrations pendentes
         applyAllMigrations();
 
-        logger.info("[AfterCore] Datasources inicializados: " + getDatasourceNames());
+        logger.info("Datasources inicializados: " + getDatasourceNames());
     }
 
     private void initializeDatasource(
@@ -172,7 +172,7 @@ public final class HikariSqlService implements SqlService {
             datasources.put(name, ds);
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "[AfterCore] Falha ao inicializar datasource '" + name + "'", e);
+            logger.log(Level.SEVERE, "Falha ao inicializar datasource '" + name + "'", e);
             throw new RuntimeException("Falha ao inicializar datasource '" + name + "'", e);
         }
     }
@@ -195,7 +195,7 @@ public final class HikariSqlService implements SqlService {
             datasources.put(DEFAULT_DATASOURCE, ds);
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "[AfterCore] Falha ao inicializar datasource default", e);
+            logger.log(Level.SEVERE, "Falha ao inicializar datasource default", e);
             throw new RuntimeException("Falha ao inicializar datasource default", e);
         }
     }
@@ -210,7 +210,7 @@ public final class HikariSqlService implements SqlService {
 
             HikariSqlDataSource ds = datasources.get(dsName);
             if (ds == null) {
-                logger.warning("[AfterCore] Cannot apply migrations for non-existent datasource '" + dsName + "'");
+                logger.warning("Cannot apply migrations for non-existent datasource '" + dsName + "'");
                 continue;
             }
 
@@ -222,12 +222,12 @@ public final class HikariSqlService implements SqlService {
             @NotNull HikariSqlDataSource ds,
             @NotNull Map<String, SqlMigration> migrations) {
         if (!ds.isInitialized()) {
-            logger.warning("[AfterCore] Skipping migrations for uninitialized datasource '" + ds.name() + "'");
+            logger.warning("Skipping migrations for uninitialized datasource '" + ds.name() + "'");
             return;
         }
 
         logger.info(
-                "[AfterCore] Checking " + migrations.size() + " migration(s) for datasource '" + ds.name() + "'...");
+                "Checking " + migrations.size() + " migration(s) for datasource '" + ds.name() + "'...");
         int success = 0;
         int skipped = 0;
 
@@ -276,10 +276,10 @@ public final class HikariSqlService implements SqlService {
 
                     success++;
                     if (debug) {
-                        logger.info("[AfterCore] ✓ Migration '" + id + "' executed on '" + ds.name() + "'");
+                        logger.info("✓ Migration '" + id + "' executed on '" + ds.name() + "'");
                     }
                 } catch (Exception e) {
-                    logger.log(Level.SEVERE, "[AfterCore] ✗ Migration '" + id + "' FAILED on '" + ds.name() + "'", e);
+                    logger.log(Level.SEVERE, "✗ Migration '" + id + "' FAILED on '" + ds.name() + "'", e);
                     throw e; // Stop execution
                 }
             }
@@ -288,7 +288,7 @@ public final class HikariSqlService implements SqlService {
         }
 
         if (success > 0 || skipped > 0) {
-            logger.info("[AfterCore] Applied " + success + " new migration(s) to '" + ds.name() + "' (" + skipped
+            logger.info("Applied " + success + " new migration(s) to '" + ds.name() + "' (" + skipped
                     + " skipped).");
         }
     }

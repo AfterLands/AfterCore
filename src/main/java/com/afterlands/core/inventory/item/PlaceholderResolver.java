@@ -1,6 +1,8 @@
 package com.afterlands.core.inventory.item;
 
+import com.afterlands.core.api.messages.MessageKey;
 import com.afterlands.core.concurrent.SchedulerService;
+import com.afterlands.core.config.MessageService;
 import com.afterlands.core.inventory.InventoryContext;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -22,8 +24,9 @@ import java.util.regex.Pattern;
  *
  * <p>Ordem de resolução:
  * <ol>
- *     <li>Placeholders do contexto ({key})</li>
- *     <li>PlaceholderAPI (%placeholder%) - MAIN THREAD ONLY</li>
+ *     <li>{@code {lang:namespace:key}} - I18n via MessageService (PRIORITY)</li>
+ *     <li>Placeholders do contexto ({@code {key}})</li>
+ *     <li>PlaceholderAPI ({@code %placeholder%}) - MAIN THREAD ONLY</li>
  * </ol>
  * </p>
  *
@@ -37,6 +40,7 @@ import java.util.regex.Pattern;
  */
 public class PlaceholderResolver {
 
+    private static final Pattern LANG_PLACEHOLDER = Pattern.compile("\\{lang:([^:}]+):([^}]+)\\}");
     private static final Pattern CONTEXT_PLACEHOLDER = Pattern.compile("\\{([^}]+)\\}");
     private static final Pattern PAPI_PLACEHOLDER = Pattern.compile("%([^%]+)%");
     private static final int MAX_ITERATIONS = 10;
@@ -45,6 +49,7 @@ public class PlaceholderResolver {
     private static final boolean PAPI_AVAILABLE = checkPlaceholderAPI();
 
     private final SchedulerService scheduler;
+    private final MessageService messageService;
     private final Cache<CacheKey, String> cache;
     private final boolean debug;
 
@@ -52,10 +57,12 @@ public class PlaceholderResolver {
      * Cria resolver com scheduler para main thread operations.
      *
      * @param scheduler Scheduler service
+     * @param messageService Message service for i18n resolution
      * @param debug Habilita debug logging
      */
-    public PlaceholderResolver(@NotNull SchedulerService scheduler, boolean debug) {
+    public PlaceholderResolver(@NotNull SchedulerService scheduler, @NotNull MessageService messageService, boolean debug) {
         this.scheduler = scheduler;
+        this.messageService = messageService;
         this.debug = debug;
 
         // Cache de curta duração para placeholders resolvidos
@@ -111,10 +118,15 @@ public class PlaceholderResolver {
         for (int i = 0; i < MAX_ITERATIONS; i++) {
             String before = result;
 
-            // 1. Resolve context placeholders ({key})
+            // 1. Resolve i18n placeholders ({lang:namespace:key}) - PRIORITY
+            if (player != null) {
+                result = resolveLangPlaceholders(result, player);
+            }
+
+            // 2. Resolve context placeholders ({key})
             result = resolveContextPlaceholders(result, context);
 
-            // 2. Resolve PlaceholderAPI (%placeholder%)
+            // 3. Resolve PlaceholderAPI (%placeholder%)
             if (PAPI_AVAILABLE && player != null) {
                 result = resolvePlaceholderAPI(result, player);
             }
@@ -179,29 +191,71 @@ public class PlaceholderResolver {
     }
 
     /**
-     * Verifica se texto contém placeholders dinâmicos (PlaceholderAPI).
+     * Verifica se texto contém placeholders dinâmicos (PlaceholderAPI ou i18n).
      *
      * <p>Útil para determinar se item é cacheável.</p>
      *
      * @param text Texto a verificar
-     * @return true se contém %placeholder%
+     * @return true se contém %placeholder% ou {lang:}
      */
     public boolean hasDynamicPlaceholders(@NotNull String text) {
-        return PAPI_PLACEHOLDER.matcher(text).find();
+        return PAPI_PLACEHOLDER.matcher(text).find() || LANG_PLACEHOLDER.matcher(text).find();
     }
 
     /**
      * Verifica se texto contém qualquer tipo de placeholder.
      *
      * @param text Texto a verificar
-     * @return true se contém {key} ou %placeholder%
+     * @return true se contém {key}, %placeholder%, ou {lang:}
      */
     public boolean hasPlaceholders(@NotNull String text) {
-        return CONTEXT_PLACEHOLDER.matcher(text).find() || PAPI_PLACEHOLDER.matcher(text).find();
+        return CONTEXT_PLACEHOLDER.matcher(text).find()
+            || PAPI_PLACEHOLDER.matcher(text).find()
+            || LANG_PLACEHOLDER.matcher(text).find();
+    }
+
+    /**
+     * Resolve i18n placeholders ({lang:namespace:key}).
+     *
+     * <p>This is resolved FIRST to allow translated text to contain
+     * context placeholders and PAPI placeholders.</p>
+     *
+     * @param text Texto
+     * @param player Player for language resolution
+     * @return Texto com {lang:...} substituídos
+     */
+    @NotNull
+    private String resolveLangPlaceholders(@NotNull String text, @NotNull Player player) {
+        Matcher matcher = LANG_PLACEHOLDER.matcher(text);
+        StringBuilder sb = new StringBuilder();
+
+        while (matcher.find()) {
+            String namespace = matcher.group(1);
+            String path = matcher.group(2);
+
+            try {
+                MessageKey key = MessageKey.of(namespace, path);
+                String translation = messageService.get(player, key);
+
+                // Quote replacement to handle special regex chars in translation
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(translation));
+            } catch (Exception e) {
+                // Fallback: keep original pattern if translation fails
+                if (debug) {
+                    Bukkit.getLogger().warning("[PlaceholderResolver] Failed to resolve {lang:" + namespace + ":" + path + "}: " + e.getMessage());
+                }
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
+            }
+        }
+
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 
     /**
      * Resolve placeholders do contexto ({key}).
+     *
+     * <p>Skip patterns that look like {lang:...} to avoid conflicts.</p>
      *
      * @param text Texto
      * @param context Contexto
@@ -213,7 +267,15 @@ public class PlaceholderResolver {
         StringBuilder sb = new StringBuilder();
 
         while (matcher.find()) {
+            String fullMatch = matcher.group(0);
             String key = matcher.group(1);
+
+            // Skip {lang:...} patterns (already resolved)
+            if (key.startsWith("lang:")) {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(fullMatch));
+                continue;
+            }
+
             String value = context.getPlaceholders().get(key);
 
             if (value != null) {

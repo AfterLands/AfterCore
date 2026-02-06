@@ -2,6 +2,7 @@ package com.afterlands.core.commands.parser;
 
 import com.afterlands.core.commands.CommandSpec;
 import com.afterlands.core.commands.execution.ParsedArgs;
+import com.afterlands.core.commands.execution.ParsedFlags;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -211,7 +212,7 @@ public final class ArgumentParser {
      */
     public record ParseResult(
             @NotNull ParsedArgs args,
-            @NotNull com.afterlands.core.commands.execution.ParsedFlags flags) {
+            @NotNull ParsedFlags flags) {
     }
 
     /**

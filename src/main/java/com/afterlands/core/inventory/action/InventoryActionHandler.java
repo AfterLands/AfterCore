@@ -5,12 +5,14 @@ import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.conditions.ConditionContext;
 import com.afterlands.core.inventory.InventoryContext;
 import com.afterlands.core.inventory.InventoryService;
+import com.afterlands.core.actions.ActionExecutor;
 import com.afterlands.core.conditions.ConditionService;
 import com.afterlands.core.inventory.click.ClickContext;
 import com.afterlands.core.inventory.click.ClickHandler;
 import com.afterlands.core.inventory.click.ClickHandlers;
 import com.afterlands.core.inventory.item.GuiItem;
 import com.afterlands.core.inventory.item.PlaceholderResolver;
+import com.afterlands.core.inventory.navigation.NavigationEntry;
 import com.afterlands.core.inventory.view.InventoryViewHolder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -18,9 +20,12 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -41,7 +46,7 @@ import java.util.logging.Logger;
 public class InventoryActionHandler {
 
     private final ActionService actionService;
-    private final com.afterlands.core.actions.ActionExecutor actionExecutor;
+    private final ActionExecutor actionExecutor;
     private final ConditionService conditionService;
     private final PlaceholderResolver placeholderResolver;
     private final SchedulerService scheduler;
@@ -58,7 +63,7 @@ public class InventoryActionHandler {
 
     public InventoryActionHandler(
             ActionService actionService,
-            com.afterlands.core.actions.ActionExecutor actionExecutor,
+            ActionExecutor actionExecutor,
             ConditionService conditionService,
             PlaceholderResolver placeholderResolver,
             SchedulerService scheduler,
@@ -136,14 +141,14 @@ public class InventoryActionHandler {
 
                     // Get existing navigation history or create new one
                     @SuppressWarnings("unchecked")
-                    java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry> history = currentCtx
-                            .getData("navigation_history", java.util.List.class)
-                            .map(list -> new java.util.ArrayList<>(
-                                    (java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>) list))
-                            .orElseGet(java.util.ArrayList::new);
+                    List<NavigationEntry> history = currentCtx
+                            .getData("navigation_history", List.class)
+                            .map(list -> new ArrayList<>(
+                                    (List<NavigationEntry>) list))
+                            .orElseGet(ArrayList::new);
 
                     // Add current panel to history
-                    history.add(new com.afterlands.core.inventory.navigation.NavigationEntry(
+                    history.add(new NavigationEntry(
                             currentCtx.getInventoryId(),
                             currentCtx.getPlaceholders()));
 
@@ -178,18 +183,18 @@ public class InventoryActionHandler {
 
                 // Get navigation history
                 @SuppressWarnings("unchecked")
-                java.util.Optional<java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>> historyOpt = currentCtx
-                        .getData("navigation_history", java.util.List.class)
-                        .map(list -> (java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry>) list);
+                Optional<List<NavigationEntry>> historyOpt = currentCtx
+                        .getData("navigation_history", List.class)
+                        .map(list -> (List<NavigationEntry>) list);
 
                 if (historyOpt.isPresent()) {
-                    java.util.List<com.afterlands.core.inventory.navigation.NavigationEntry> history = new java.util.ArrayList<>(
+                    List<NavigationEntry> history = new ArrayList<>(
                             historyOpt.get());
 
                     // Check if there's a previous panel in history
                     if (!history.isEmpty()) {
                         // Pop the last entry (go back)
-                        com.afterlands.core.inventory.navigation.NavigationEntry previous = history
+                        NavigationEntry previous = history
                                 .remove(history.size() - 1);
 
                         // Create new context with previous panel's placeholders and updated history
@@ -250,7 +255,7 @@ public class InventoryActionHandler {
 
         // 0. Check Click Conditions
         if (!item.getClickConditions().isEmpty()) {
-            ConditionContext conditionContext = java.util.Collections::emptyMap;
+            ConditionContext conditionContext = Collections::emptyMap;
             boolean canClick = true;
             for (String condition : item.getClickConditions()) {
                 if (!conditionService.evaluateSync(player, condition, conditionContext)) {
@@ -298,7 +303,7 @@ public class InventoryActionHandler {
 
         // Evaluate conditions if present
         if (configuredAction.hasConditions()) {
-            ConditionContext conditionContext = java.util.Collections::emptyMap;
+            ConditionContext conditionContext = Collections::emptyMap;
             boolean conditionsMet = true;
             for (String condition : configuredAction.conditions()) {
                 if (!conditionService.evaluateSync(player, condition, conditionContext)) {
@@ -506,8 +511,8 @@ public class InventoryActionHandler {
      *
      * @return Set de nomes de actions
      */
-    public java.util.Set<String> getRegisteredActions() {
-        return java.util.Set.copyOf(customHandlers.keySet());
+    public Set<String> getRegisteredActions() {
+        return Set.copyOf(customHandlers.keySet());
     }
 
     public void setInventoryService(InventoryService inventoryService) {

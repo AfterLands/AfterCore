@@ -1,5 +1,6 @@
 package com.afterlands.core.commands.registry;
 
+import com.afterlands.core.commands.registry.nodes.CommandNode;
 import com.afterlands.core.commands.registry.nodes.RootNode;
 import com.afterlands.core.commands.registry.nodes.SubNode;
 import org.bukkit.plugin.Plugin;
@@ -15,20 +16,24 @@ import java.util.stream.Collectors;
 /**
  * Thread-safe graph structure for command tree management.
  *
- * <p>The CommandGraph maintains the complete command hierarchy and provides
- * efficient O(1) lookup for root commands and their subcommands. It supports:</p>
+ * <p>
+ * The CommandGraph maintains the complete command hierarchy and provides
+ * efficient O(1) lookup for root commands and their subcommands. It supports:
+ * </p>
  * <ul>
- *   <li>Concurrent read access (multiple threads can query simultaneously)</li>
- *   <li>Write serialization (mutations are synchronized)</li>
- *   <li>Owner-based command grouping for plugin lifecycle management</li>
- *   <li>Alias resolution</li>
+ * <li>Concurrent read access (multiple threads can query simultaneously)</li>
+ * <li>Write serialization (mutations are synchronized)</li>
+ * <li>Owner-based command grouping for plugin lifecycle management</li>
+ * <li>Alias resolution</li>
  * </ul>
  *
- * <p>Performance characteristics:</p>
+ * <p>
+ * Performance characteristics:
+ * </p>
  * <ul>
- *   <li>Root lookup by name: O(1)</li>
- *   <li>Subcommand lookup: O(d) where d is depth</li>
- *   <li>Commands by owner: O(1)</li>
+ * <li>Root lookup by name: O(1)</li>
+ * <li>Subcommand lookup: O(d) where d is depth</li>
+ * <li>Commands by owner: O(1)</li>
  * </ul>
  */
 public final class CommandGraph {
@@ -48,8 +53,10 @@ public final class CommandGraph {
     /**
      * Registers a root command node.
      *
-     * <p>If a command with the same name already exists, it will be replaced.
-     * Aliases are also indexed for fast lookup.</p>
+     * <p>
+     * If a command with the same name already exists, it will be replaced.
+     * Aliases are also indexed for fast lookup.
+     * </p>
      *
      * @param root The root node to register
      * @throws IllegalArgumentException if root is null
@@ -178,9 +185,11 @@ public final class CommandGraph {
     /**
      * Resolves a command path to find the target node.
      *
-     * <p>Given a path like ["mycommand", "sub", "nested"], this method
+     * <p>
+     * Given a path like ["mycommand", "sub", "nested"], this method
      * traverses the tree and returns the deepest matching node along
-     * with the remaining unparsed arguments.</p>
+     * with the remaining unparsed arguments.
+     * </p>
      *
      * @param path The command path tokens
      * @return Resolution result with the matched node and remaining args
@@ -203,7 +212,7 @@ public final class CommandGraph {
         }
 
         // Traverse subcommands
-        com.afterlands.core.commands.registry.nodes.CommandNode current = root;
+        CommandNode current = root;
         int consumed = 1;
 
         for (int i = 1; i < path.length; i++) {
@@ -297,15 +306,14 @@ public final class CommandGraph {
     /**
      * Result of resolving a command path.
      *
-     * @param root       The root node (null if not found)
-     * @param node       The deepest matched node
-     * @param remaining  Remaining unparsed tokens (arguments)
+     * @param root      The root node (null if not found)
+     * @param node      The deepest matched node
+     * @param remaining Remaining unparsed tokens (arguments)
      */
     public record ResolutionResult(
             @Nullable RootNode root,
-            @Nullable com.afterlands.core.commands.registry.nodes.CommandNode node,
-            @NotNull List<String> remaining
-    ) {
+            @Nullable CommandNode node,
+            @NotNull List<String> remaining) {
         /**
          * Returns an empty result (command not found).
          */

@@ -9,15 +9,22 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Handler para tocar sons padrão do Minecraft.
  *
- * <p>Formato: {@code sound: SOUND_NAME [volume] [pitch]}</p>
- * <p>Suporta:</p>
+ * <p>
+ * Formato: {@code sound: SOUND_NAME [volume] [pitch]}
+ * </p>
+ * <p>
+ * Suporta:
+ * </p>
  * <ul>
- *     <li>Todos os sons do enum {@link Sound}</li>
- *     <li>Volume (padrão: 1.0, range: 0.0-1.0)</li>
- *     <li>Pitch (padrão: 1.0, range: 0.5-2.0)</li>
+ * <li>Todos os sons do enum {@link Sound}</li>
+ * <li>Volume (padrão: 1.0, range: 0.0-1.0)</li>
+ * <li>Pitch (padrão: 1.0, range: 0.5-2.0)</li>
  * </ul>
  *
- * <p>Exemplos:</p>
+ * <p>
+ * Exemplos:
+ * </p>
+ * 
  * <pre>
  * sound: LEVEL_UP
  * sound: CLICK 0.5 1.0
@@ -25,7 +32,10 @@ import org.jetbrains.annotations.NotNull;
  * sound: ENDERMAN_TELEPORT 0.8 0.5
  * </pre>
  *
- * <p>Para sons customizados de resource pack, use {@code resource_pack_sound} em vez disso.</p>
+ * <p>
+ * Para sons customizados de resource pack, use {@code resource_pack_sound} em
+ * vez disso.
+ * </p>
  */
 public final class SoundHandler implements ActionHandler {
 
@@ -70,7 +80,7 @@ public final class SoundHandler implements ActionHandler {
         } catch (IllegalArgumentException e) {
             // Som inválido, log warning para debug
             // Note: Using Bukkit logger since we don't have plugin reference
-            org.bukkit.Bukkit.getLogger().warning("[AfterCore] Invalid sound name: " + soundName);
+            org.bukkit.Bukkit.getLogger().warning("Invalid sound name: " + soundName);
             return;
         }
 

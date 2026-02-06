@@ -20,6 +20,7 @@ import com.afterlands.core.config.MessageService;
 import com.afterlands.core.config.impl.DefaultConfigService;
 import com.afterlands.core.config.impl.DefaultMessageService;
 import com.afterlands.core.config.update.ConfigUpdater;
+import com.afterlands.core.config.migrations.MigrationV2;
 import com.afterlands.core.config.validate.ConfigValidator;
 import com.afterlands.core.config.validate.ValidationResult;
 import com.afterlands.core.database.SqlService;
@@ -171,15 +172,15 @@ public class PluginRegistry {
         // 8. Inventory Framework
         InventoryConfigManager invConfigManager = new InventoryConfigManager(plugin, config);
         this.inventory = new DefaultInventoryService(plugin, scheduler, sql, actions, actionExecutor, conditions,
-                invConfigManager);
+                messages, invConfigManager);
 
         // 9. Holograms (optional - checks if DecentHolograms is installed)
         if (Bukkit.getPluginManager().getPlugin("DecentHolograms") != null) {
             this.holograms = new DefaultHologramService(plugin, logger, debug);
-            logger.info("[AfterCore] DecentHolograms detected - HologramService enabled");
+            logger.info("DecentHolograms detected - HologramService enabled");
         } else {
             this.holograms = new NoOpHologramService(logger);
-            logger.info("[AfterCore] DecentHolograms not found - HologramService disabled");
+            logger.info("DecentHolograms not found - HologramService disabled");
         }
     }
 
@@ -227,7 +228,7 @@ public class PluginRegistry {
     private void updateConfigFile(String filename) {
         if ("config.yml".equals(filename)) {
             config.update(plugin, filename, updater -> {
-                updater.registerMigration(2, new com.afterlands.core.config.migrations.MigrationV2());
+                updater.registerMigration(2, new MigrationV2());
             });
             plugin.reloadConfig();
         } else {

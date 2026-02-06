@@ -37,3 +37,18 @@ commands:
       prev-hover: "&7► Clique para página {page}"
       next-page: " &7[Próxima ⇨]"
       next-hover: "&7► Clique para página {page}"
+
+# Language system messages (namespace: aftercore)
+language:
+  invalid: "&c✖ Idioma inválido: &f{language}&c. Disponíveis: &f{available}"
+  changed: "&a✓ Idioma alterado para: &f{language}"
+
+  list:
+    header: "&b&lIDIOMAS DISPONÍVEIS"
+    footer: "&7Total: &f{count} &7idioma(s)"
+
+  info:
+    header: "&b&lINFORMAÇÕES DE IDIOMA"
+    current: "&7Idioma atual: &f{language}"
+    default: "&7Idioma padrão: &f{language}"
+    using_default: "&7Usando padrão: &f{value}"

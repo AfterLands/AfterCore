@@ -16,7 +16,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Compilador de GuiItem → ItemStack final.
@@ -148,12 +147,24 @@ public class ItemCompiler {
             meta.setDisplayName(resolvedName.replace("&", "§"));
         }
 
-        // 3. Lore (resolve placeholders)
+        // 3. Lore (resolve placeholders with multiline expansion support)
         if (item.getLore() != null && !item.getLore().isEmpty()) {
-            List<String> resolvedLore = placeholderResolver.resolveLines(item.getLore(), player, context)
-                    .stream()
-                    .map(line -> line.replace("&", "§"))
-                    .collect(Collectors.toList());
+            List<String> resolvedLore = new java.util.ArrayList<>();
+
+            for (String line : item.getLore()) {
+                String resolved = placeholderResolver.resolve(line, player, context);
+
+                // Check if line contains newline separator (\n) - expand to multiple lines
+                if (resolved.contains("\\n")) {
+                    String[] parts = resolved.split("\\\\n");
+                    for (String part : parts) {
+                        resolvedLore.add(part.replace("&", "§"));
+                    }
+                } else {
+                    resolvedLore.add(resolved.replace("&", "§"));
+                }
+            }
+
             meta.setLore(resolvedLore);
         }
 

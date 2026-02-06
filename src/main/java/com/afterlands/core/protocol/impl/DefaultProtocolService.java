@@ -98,7 +98,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
 
         // Check ProtocolLib availability
         if (Bukkit.getPluginManager().getPlugin("ProtocolLib") == null) {
-            logger.info("[AfterCore] ProtocolLib não encontrado (ProtocolService desativado).");
+            logger.info("ProtocolLib não encontrado (ProtocolService desativado).");
             protocolLibAvailable = false;
             return;
         }
@@ -124,7 +124,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
         // Register Bukkit listener for cleanup
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        logger.info("[AfterCore] ProtocolService iniciado (pipeline MAP_CHUNK ativo).");
+        logger.info("ProtocolService iniciado (pipeline MAP_CHUNK ativo).");
     }
 
     @Override
@@ -148,7 +148,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
         sortProviders();
 
         if (debug) {
-            logger.info("[AfterCore] ChunkProvider registrado: " + provider.id() + " prio=" + provider.priority());
+            logger.info("ChunkProvider registrado: " + provider.id() + " prio=" + provider.priority());
         }
     }
 
@@ -156,7 +156,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
     public boolean unregisterChunkProvider(@NotNull String id) {
         boolean removed = providers.removeIf(p -> p.id().equals(id));
         if (removed && debug) {
-            logger.info("[AfterCore] ChunkProvider removido: " + id);
+            logger.info("ChunkProvider removido: " + id);
         }
         return removed;
     }
@@ -220,7 +220,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
                 handleMapChunk(event, player);
             }
         } catch (Exception e) {
-            logger.warning("[AfterCore] Erro ao processar chunk packet: " + e.getMessage());
+            logger.warning("Erro ao processar chunk packet: " + e.getMessage());
             if (debug) {
                 e.printStackTrace();
             }
@@ -332,7 +332,7 @@ public final class DefaultProtocolService implements ProtocolService, Listener {
                         player.getName() + " at [" + chunkX + "," + chunkZ + "]");
             }
         } catch (Exception e) {
-            logger.warning("[AfterCore] Falha ao enviar MULTI_BLOCK_CHANGE: " + e.getMessage());
+            logger.warning("Falha ao enviar MULTI_BLOCK_CHANGE: " + e.getMessage());
         }
     }
 

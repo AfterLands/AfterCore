@@ -16,10 +16,14 @@ import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.config.ConfigService;
 import com.afterlands.core.config.MessageService;
 import com.afterlands.core.metrics.MetricsService;
+import com.afterlands.core.util.ratelimit.CooldownService;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -99,7 +103,7 @@ public final class DefaultCommandService implements CommandService {
         CommandGraph graph = new CommandGraph();
 
         // Initialize cooldown service for rate limiting
-        com.afterlands.core.util.ratelimit.CooldownService cooldownService = new com.afterlands.core.util.ratelimit.CooldownService();
+        CooldownService cooldownService = new CooldownService();
 
         // Initialize dispatcher factory with graph access
         DefaultCommandDispatcher.Factory dispatcherFactory = new DefaultCommandDispatcher.Factory(
@@ -170,9 +174,9 @@ public final class DefaultCommandService implements CommandService {
             return;
         }
 
-        java.io.File messagesFile = new java.io.File(plugin.getDataFolder(), "messages.yml");
+        java.io.File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
         if (messagesFile.exists()) {
-            org.bukkit.configuration.file.YamlConfiguration pluginMessagesConfig = org.bukkit.configuration.file.YamlConfiguration
+            YamlConfiguration pluginMessagesConfig = YamlConfiguration
                     .loadConfiguration(messagesFile);
             messageFacade.registerPluginMessages(plugin, pluginMessagesConfig);
             if (debug) {
@@ -182,9 +186,9 @@ public final class DefaultCommandService implements CommandService {
             // Try to save default from resources if the plugin has one
             if (plugin.getResource("messages.yml") != null) {
                 plugin.saveResource("messages.yml", false);
-                messagesFile = new java.io.File(plugin.getDataFolder(), "messages.yml");
+                messagesFile = new File(plugin.getDataFolder(), "messages.yml");
                 if (messagesFile.exists()) {
-                    org.bukkit.configuration.file.YamlConfiguration pluginMessagesConfig = org.bukkit.configuration.file.YamlConfiguration
+                    YamlConfiguration pluginMessagesConfig = YamlConfiguration
                             .loadConfiguration(messagesFile);
                     messageFacade.registerPluginMessages(plugin, pluginMessagesConfig);
                     if (debug) {
@@ -253,11 +257,11 @@ public final class DefaultCommandService implements CommandService {
 
     @Override
     @NotNull
-    public java.util.Set<String> getAliases(@NotNull String commandName) {
+    public Set<String> getAliases(@NotNull String commandName) {
         var root = registry.graph().getRoot(commandName);
         if (root == null) {
-            return java.util.Set.of();
+            return Set.of();
         }
-        return java.util.Set.copyOf(root.aliases());
+        return Set.copyOf(root.aliases());
     }
 }

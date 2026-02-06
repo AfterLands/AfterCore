@@ -143,10 +143,68 @@ public class InventoryViewHolder implements Listener {
         String title = context.resolvePlaceholders(config.title()).replace("&", "§");
         int size = config.getSizeInSlots();
 
+        // Validate title length (1.8.8 limit: 32 chars)
+        title = validateTitle(title, config.title());
+
         this.inventory = Bukkit.createInventory(null, size, title);
 
         // Renderiza itens
         renderItems();
+    }
+
+    /**
+     * Validates and fixes inventory title to fit 1.8.8 limit (32 chars).
+     *
+     * <p>Does NOT truncate. Instead, tries fallback strategies:</p>
+     * <ol>
+     *     <li>If resolved title exceeds 32 chars, log warning and try raw config title</li>
+     *     <li>If raw title also exceeds, use simple fallback "Inventory"</li>
+     * </ol>
+     *
+     * @param resolvedTitle Title with placeholders resolved and formatted
+     * @param rawTitle Raw title from config (before resolution)
+     * @return Valid title (max 32 chars)
+     */
+    @NotNull
+    private String validateTitle(@NotNull String resolvedTitle, @NotNull String rawTitle) {
+        final int MAX_TITLE_LENGTH = 32;
+
+        // Strip color codes for length calculation (color codes don't count towards limit)
+        String strippedTitle = org.bukkit.ChatColor.stripColor(resolvedTitle);
+
+        if (strippedTitle.length() <= MAX_TITLE_LENGTH) {
+            return resolvedTitle; // OK
+        }
+
+        // Title exceeds limit - log warning and try fallback
+        boolean debug = plugin.getConfig().getBoolean("debug", false);
+        if (debug) {
+            plugin.getLogger().warning(
+                "[InventoryViewHolder] Title exceeds 32 char limit (" + strippedTitle.length() + " chars): " +
+                "'" + strippedTitle + "' for inventory: " + config.id()
+            );
+        }
+
+        // Fallback 1: Try raw config title (without placeholder resolution)
+        String fallbackTitle = rawTitle.replace("&", "§");
+        String strippedFallback = org.bukkit.ChatColor.stripColor(fallbackTitle);
+
+        if (strippedFallback.length() <= MAX_TITLE_LENGTH) {
+            if (debug) {
+                plugin.getLogger().warning(
+                    "[InventoryViewHolder] Using fallback (raw config) title: '" + strippedFallback + "'"
+                );
+            }
+            return fallbackTitle;
+        }
+
+        // Fallback 2: Use simple generic title
+        if (debug) {
+            plugin.getLogger().warning(
+                "[InventoryViewHolder] Raw title also exceeds limit. Using generic fallback."
+            );
+        }
+        return "Inventory";
     }
 
     /**

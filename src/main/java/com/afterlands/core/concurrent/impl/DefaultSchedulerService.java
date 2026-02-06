@@ -31,7 +31,7 @@ public final class DefaultSchedulerService implements SchedulerService {
         this.cpuExecutor = Executors.newFixedThreadPool(cpuThreads, namedFactory("AfterCore-CPU"));
 
         if (debug) {
-            plugin.getLogger().info("[AfterCore] Scheduler: ioThreads=" + ioThreads + ", cpuThreads=" + cpuThreads);
+            plugin.getLogger().info("Scheduler: ioThreads=" + ioThreads + ", cpuThreads=" + cpuThreads);
         }
     }
 

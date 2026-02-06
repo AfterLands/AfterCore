@@ -1,9 +1,11 @@
 package com.afterlands.core.diagnostics.commands;
 
+import com.afterlands.core.api.AfterCore;
 import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.diagnostics.DiagnosticsSnapshot;
 import com.afterlands.core.diagnostics.DiagnosticsSnapshot.*;
+import com.afterlands.core.inventory.diagnostics.MemoryLeakDetector;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.metrics.MetricsSnapshot;
 import org.bukkit.ChatColor;
@@ -23,14 +25,15 @@ import java.util.Map;
 /**
  * Comando /acore para diagnóstico e health check.
  *
- * <p>Subcomandos:
+ * <p>
+ * Subcomandos:
  * <ul>
- *   <li>/acore status - Dependências, versões, flags</li>
- *   <li>/acore db - Database info e ping</li>
- *   <li>/acore threads - Thread pool info</li>
- *   <li>/acore system - System info (JVM, OS, memória)</li>
- *   <li>/acore metrics - Métricas de performance</li>
- *   <li>/acore all - Todas as informações</li>
+ * <li>/acore status - Dependências, versões, flags</li>
+ * <li>/acore db - Database info e ping</li>
+ * <li>/acore threads - Thread pool info</li>
+ * <li>/acore system - System info (JVM, OS, memória)</li>
+ * <li>/acore metrics - Métricas de performance</li>
+ * <li>/acore all - Todas as informações</li>
  * </ul>
  * </p>
  */
@@ -42,13 +45,12 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
     private final MetricsService metrics;
 
     private static final List<String> SUBCOMMANDS = Arrays.asList(
-            "status", "db", "threads", "system", "metrics", "memory", "all"
-    );
+            "status", "db", "threads", "system", "metrics", "memory", "all");
 
     public ACoreCommand(@NotNull Plugin plugin,
-                       @NotNull DiagnosticsService diagnostics,
-                       @NotNull SchedulerService scheduler,
-                       @NotNull MetricsService metrics) {
+            @NotNull DiagnosticsService diagnostics,
+            @NotNull SchedulerService scheduler,
+            @NotNull MetricsService metrics) {
         this.plugin = plugin;
         this.diagnostics = diagnostics;
         this.scheduler = scheduler;
@@ -57,9 +59,9 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender,
-                            @NotNull Command command,
-                            @NotNull String label,
-                            @NotNull String[] args) {
+            @NotNull Command command,
+            @NotNull String label,
+            @NotNull String[] args) {
         if (!sender.hasPermission("aftercore.admin")) {
             sender.sendMessage(ChatColor.RED + "Sem permissão.");
             return true;
@@ -89,9 +91,9 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
     @Override
     @Nullable
     public List<String> onTabComplete(@NotNull CommandSender sender,
-                                     @NotNull Command command,
-                                     @NotNull String alias,
-                                     @NotNull String[] args) {
+            @NotNull Command command,
+            @NotNull String alias,
+            @NotNull String[] args) {
         if (!sender.hasPermission("aftercore.admin")) {
             return List.of();
         }
@@ -171,7 +173,8 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("  " + ChatColor.GRAY + "Total: " + ChatColor.WHITE + stats.totalConnections());
             sender.sendMessage("  " + ChatColor.GRAY + "Active: " + ChatColor.WHITE + stats.activeConnections());
             sender.sendMessage("  " + ChatColor.GRAY + "Idle: " + ChatColor.WHITE + stats.idleConnections());
-            sender.sendMessage("  " + ChatColor.GRAY + "Awaiting: " + ChatColor.WHITE + stats.threadsAwaitingConnection());
+            sender.sendMessage(
+                    "  " + ChatColor.GRAY + "Awaiting: " + ChatColor.WHITE + stats.threadsAwaitingConnection());
         }
 
         // Ping assíncrono
@@ -183,7 +186,7 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
                     if (pingMs >= 0) {
                         String color = pingMs < 10 ? ChatColor.GREEN.toString()
                                 : pingMs < 50 ? ChatColor.YELLOW.toString()
-                                : ChatColor.RED.toString();
+                                        : ChatColor.RED.toString();
                         sender.sendMessage(ChatColor.YELLOW + "Ping: " + color + pingMs + "ms");
                     } else {
                         sender.sendMessage(ChatColor.RED + "Ping: FAILED");
@@ -225,7 +228,7 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
         double usagePercent = (usedMb * 100.0) / sys.totalMemoryMb();
         String color = usagePercent < 70 ? ChatColor.GREEN.toString()
                 : usagePercent < 85 ? ChatColor.YELLOW.toString()
-                : ChatColor.RED.toString();
+                        : ChatColor.RED.toString();
         sender.sendMessage("  " + ChatColor.GRAY + "Used: " + color + usedMb + " MB " +
                 "(" + String.format("%.1f", usagePercent) + "%)");
     }
@@ -242,14 +245,14 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
 
         if (!snapshot.counters().isEmpty()) {
             sender.sendMessage(ChatColor.YELLOW + "Counters:");
-            snapshot.counters().forEach((name, value) ->
-                    sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE + value));
+            snapshot.counters().forEach(
+                    (name, value) -> sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE + value));
         }
 
         if (!snapshot.timers().isEmpty()) {
             sender.sendMessage(ChatColor.YELLOW + "Timers:");
-            snapshot.timers().forEach((name, stats) ->
-                    sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE +
+            snapshot.timers()
+                    .forEach((name, stats) -> sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE +
                             "count=" + stats.count() +
                             ", avg=" + String.format("%.2f", stats.avgMs()) + "ms" +
                             ", min=" + String.format("%.2f", stats.minMs()) + "ms" +
@@ -258,8 +261,8 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
 
         if (!snapshot.gauges().isEmpty()) {
             sender.sendMessage(ChatColor.YELLOW + "Gauges:");
-            snapshot.gauges().forEach((name, value) ->
-                    sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE +
+            snapshot.gauges()
+                    .forEach((name, value) -> sender.sendMessage("  " + ChatColor.GRAY + name + ": " + ChatColor.WHITE +
                             String.format("%.2f", value)));
         }
     }
@@ -272,32 +275,29 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
         scheduler.ioExecutor().execute(() -> {
             try {
                 // Importar MemoryLeakDetector
-                com.afterlands.core.inventory.diagnostics.MemoryLeakDetector detector =
-                    new com.afterlands.core.inventory.diagnostics.MemoryLeakDetector(
-                        com.afterlands.core.api.AfterCore.get()
-                    );
+                MemoryLeakDetector detector = new MemoryLeakDetector(
+                        AfterCore.get());
 
-                com.afterlands.core.inventory.diagnostics.MemoryLeakDetector.MemoryLeakReport report =
-                    detector.checkForLeaks();
+                MemoryLeakDetector.MemoryLeakReport report = detector.checkForLeaks();
 
                 // Retornar ao main thread para enviar mensagens
                 scheduler.runSync(() -> {
                     // Heap stats
                     sender.sendMessage(ChatColor.YELLOW + "Heap Usage:");
                     sender.sendMessage("  " + ChatColor.GRAY + "Used: " + ChatColor.WHITE +
-                        (report.heapUsed / 1024 / 1024) + " MB / " +
-                        (report.heapMax / 1024 / 1024) + " MB");
+                            (report.heapUsed / 1024 / 1024) + " MB / " +
+                            (report.heapMax / 1024 / 1024) + " MB");
 
                     String color = report.heapUsagePercent < 70 ? ChatColor.GREEN.toString()
                             : report.heapUsagePercent < 85 ? ChatColor.YELLOW.toString()
-                            : ChatColor.RED.toString();
+                                    : ChatColor.RED.toString();
                     sender.sendMessage("  " + ChatColor.GRAY + "Usage: " + color +
-                        String.format("%.1f%%", report.heapUsagePercent));
+                            String.format("%.1f%%", report.heapUsagePercent));
 
                     // Health status
                     String healthColor = report.isHealthy() ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
                     sender.sendMessage(ChatColor.YELLOW + "Health: " + healthColor +
-                        (report.isHealthy() ? "✓ HEALTHY" : "✗ LEAKS DETECTED"));
+                            (report.isHealthy() ? "✓ HEALTHY" : "✗ LEAKS DETECTED"));
 
                     // Full report
                     sender.sendMessage(ChatColor.GRAY + "Use console para relatório completo.");

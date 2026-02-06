@@ -67,6 +67,7 @@ public class PluginLifecycle {
     }
 
     private void registerCommands() {
+        // Legacy CommandExecutor for /acore (will be migrated later)
         PluginCommand acoreCmd = plugin.getCommand("acore");
         if (acoreCmd != null) {
             ACoreCommand acoreHandler = new ACoreCommand(
@@ -77,5 +78,7 @@ public class PluginLifecycle {
             acoreCmd.setExecutor(acoreHandler);
             acoreCmd.setTabCompleter(acoreHandler);
         }
+
+        plugin.getLogger().info("Registered commands via CommandFramework");
     }
 }

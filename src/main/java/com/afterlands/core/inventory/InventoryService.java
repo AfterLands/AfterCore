@@ -4,9 +4,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import com.afterlands.core.inventory.click.ClickHandler;
+import com.afterlands.core.inventory.template.ItemTemplateService;
 
 /**
  * Serviço principal de inventários do AfterCore.
@@ -218,7 +222,7 @@ public interface InventoryService {
          * @return Serviço para carregar itens como templates
          */
         @NotNull
-        com.afterlands.core.inventory.template.ItemTemplateService templates();
+        ItemTemplateService templates();
 
         /**
          * Verifica se um inventário está registrado.
@@ -254,7 +258,7 @@ public interface InventoryService {
          * @param file Arquivo YAML contendo seção 'inventories'
          * @return Número de inventários registrados
          */
-        int registerInventories(@NotNull java.io.File file);
+        int registerInventories(@NotNull File file);
 
         /**
          * Registra inventários a partir de um arquivo YAML com namespace do plugin.
@@ -268,7 +272,7 @@ public interface InventoryService {
          * @param file   Arquivo YAML contendo seção 'inventories'
          * @return Número de inventários registrados
          */
-        int registerInventories(@NotNull Plugin plugin, @NotNull java.io.File file);
+        int registerInventories(@NotNull Plugin plugin, @NotNull File file);
 
         /**
          * Registra handler para um tipo de item específico.
@@ -282,5 +286,5 @@ public interface InventoryService {
          * @param handler  Handler a ser executado quando itens desse tipo são clicados
          */
         void registerTypeHandler(@NotNull String itemType,
-                        @NotNull com.afterlands.core.inventory.click.ClickHandler handler);
+                        @NotNull ClickHandler handler);
 }

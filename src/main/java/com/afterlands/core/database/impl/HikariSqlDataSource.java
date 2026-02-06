@@ -88,10 +88,10 @@ public final class HikariSqlDataSource implements SqlDataSource {
             dataSource = new HikariDataSource(hikari);
             enabled = true;
 
-            logger.info("[AfterCore] Datasource '" + name + "' (" + dialect.type() + ") inicializado.");
+            logger.info("Datasource '" + name + "' (" + dialect.type() + ") inicializado.");
 
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "[AfterCore] Falha ao inicializar datasource '" + name + "'", e);
+            logger.log(Level.SEVERE, "Falha ao inicializar datasource '" + name + "'", e);
             enabled = false;
             dataSource = null;
             throw new RuntimeException("Falha ao inicializar datasource '" + name + "'", e);
@@ -140,7 +140,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
         hikari.setMaxLifetime(maxLifetime);
 
         if (debug) {
-            logger.info("[AfterCore] Pool config for '" + name + "': maxPool=" + maxPool +
+            logger.info("Pool config for '" + name + "': maxPool=" + maxPool +
                     ", minIdle=" + minIdle + ", connTimeout=" + connTimeout);
         }
     }
@@ -229,7 +229,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
                     try {
                         conn.rollback();
                     } catch (SQLException rollbackEx) {
-                        logger.log(Level.WARNING, "[AfterCore] Rollback failed for datasource '" + name + "'",
+                        logger.log(Level.WARNING, "Rollback failed for datasource '" + name + "'",
                                 rollbackEx);
                     }
                     throw new RuntimeException(e);
@@ -237,7 +237,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
                     try {
                         conn.setAutoCommit(originalAutoCommit);
                     } catch (SQLException ex) {
-                        logger.log(Level.WARNING, "[AfterCore] Failed to restore auto-commit for '" + name + "'", ex);
+                        logger.log(Level.WARNING, "Failed to restore auto-commit for '" + name + "'", ex);
                     }
                 }
             } catch (Exception e) {
@@ -259,7 +259,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
                 return true;
             } catch (Exception e) {
                 if (debug) {
-                    logger.log(Level.WARNING, "[AfterCore] Database ping failed for '" + name + "'", e);
+                    logger.log(Level.WARNING, "Database ping failed for '" + name + "'", e);
                 }
                 return false;
             }
@@ -286,7 +286,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
                 stats.put("threads_awaiting_connection", poolMXBean.getThreadsAwaitingConnection());
             }
         } catch (Exception e) {
-            logger.log(Level.WARNING, "[AfterCore] Failed to get pool stats for '" + name + "'", e);
+            logger.log(Level.WARNING, "Failed to get pool stats for '" + name + "'", e);
         }
         return stats;
     }
@@ -306,7 +306,7 @@ public final class HikariSqlDataSource implements SqlDataSource {
         }
 
         try {
-            logger.info("[AfterCore] Datasource '" + name + "' - Shutdown initiated...");
+            logger.info("Datasource '" + name + "' - Shutdown initiated...");
             ds.close();
 
             // Wait for background threads to complete
@@ -316,9 +316,9 @@ public final class HikariSqlDataSource implements SqlDataSource {
                 Thread.currentThread().interrupt();
             }
 
-            logger.info("[AfterCore] Datasource '" + name + "' - Shutdown completed.");
+            logger.info("Datasource '" + name + "' - Shutdown completed.");
         } catch (Throwable t) {
-            logger.warning("[AfterCore] Erro ao fechar datasource '" + name + "': " + t.getMessage());
+            logger.warning("Erro ao fechar datasource '" + name + "': " + t.getMessage());
         }
     }
 
