@@ -70,9 +70,12 @@ public final class ArgumentParser {
         Objects.requireNonNull(argSpecs, "argSpecs");
         Objects.requireNonNull(flagSpecs, "flagSpecs");
 
+        // Re-tokenize to handle quoted strings (Bukkit splits by space, ignoring quotes)
+        List<String> retokenized = ArgReader.of(args.toArray(new String[0])).allTokens();
+
         // Parse flags first (removes them from args)
         FlagParser flagParser = new FlagParser(flagSpecs);
-        FlagParser.Result flagResult = flagParser.parse(args);
+        FlagParser.Result flagResult = flagParser.parse(retokenized);
 
         // Remaining are positional arguments
         List<String> positionalArgs = flagResult.remaining();

@@ -3,7 +3,7 @@
 # Regra: ZERO I/O na main thread. Tudo que tocar DB deve ser async.
 
 # Versão do config (usado para migrations automáticas)
-config-version: 2
+config-version: 2.1
 
 debug: false
 
@@ -74,3 +74,4 @@ commands:
   help:
     # Número de subcomandos exibidos por página no help
     page-size: 7
+    show-group-subcount: false

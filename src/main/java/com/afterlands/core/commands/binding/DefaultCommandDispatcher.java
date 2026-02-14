@@ -14,10 +14,15 @@ import com.afterlands.core.commands.registry.CommandGraph;
 import com.afterlands.core.commands.registry.nodes.CommandNode;
 import com.afterlands.core.commands.registry.nodes.RootNode;
 import com.afterlands.core.commands.registry.nodes.SubNode;
+import com.afterlands.core.commands.util.StringDistance;
 import com.afterlands.core.concurrent.SchedulerService;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.util.ratelimit.CooldownService;
 import com.afterlands.core.util.ratelimit.RateLimiter;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -185,11 +190,9 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
         // If node has children but no executor, and we have remaining args that don't
         // match a child
         if (!remaining.isEmpty() && targetNode.hasChildren() && !targetNode.isExecutable()) {
-            // Unknown subcommand
-            messages.send(sender, "commands.unknown-subcommand",
-                    "subcommand", remaining.get(0),
-                    "command", fullPath);
-            sendUsageHint(sender, targetNode, fullPath);
+            // Unknown subcommand - try fuzzy match
+            String unknownSub = remaining.get(0);
+            sendFuzzySuggestionOrHelp(sender, targetNode, root, label, fullPath, unknownSub);
             return true;
         }
 
@@ -206,22 +209,54 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
             return true;
         }
 
-        // Check for group help request (e.g., /cmd placement help)
-        // This happens when we're at root and remaining has format [<group>, "help",
-        // [page]]
-        if (targetNode == root && remaining.size() >= 2 && "help".equalsIgnoreCase(remaining.get(1))) {
+        // Check for invalid tokens for executable nodes that possess children but
+        // expect no arguments
+        // Example: /alang al3456 (where root /alang is executable but expects no args,
+        // and has children)
+        if (!remaining.isEmpty() && targetNode.hasChildren() && targetNode.arguments().isEmpty()) {
+            // Check if first arg is a group (handled below) or help (handled below)
+            String firstArg = remaining.get(0).toLowerCase(java.util.Locale.ROOT);
+            if (!root.groups().containsKey(firstArg) && !"help".equalsIgnoreCase(firstArg)) {
+                sendFuzzySuggestionOrHelp(sender, targetNode, root, label, fullPath, remaining.get(0));
+                return true;
+            }
+        }
+
+        // Check for group help request (e.g., /cmd placement [help])
+        if (targetNode == root && !remaining.isEmpty()) {
             String potentialGroup = remaining.get(0).toLowerCase(java.util.Locale.ROOT);
             if (root.groups().containsKey(potentialGroup)) {
-                int page = 1;
-                if (remaining.size() >= 3) {
-                    try {
-                        page = Integer.parseInt(remaining.get(2));
-                    } catch (NumberFormatException ignored) {
+                if (remaining.size() == 1 || "help".equalsIgnoreCase(remaining.get(1))) {
+                    // Group help: /alang backup OR /alang backup help [page]
+                    int page = 1;
+                    if (remaining.size() >= 3) {
+                        try {
+                            page = Integer.parseInt(remaining.get(2));
+                        } catch (NumberFormatException ignored) {
+                        }
                     }
+                    helpFormatter.sendGroupHelp(sender, root, label, potentialGroup, page);
+                    return true;
+                } else {
+                    // Unknown group subcommand: /alang backup lis5
+                    // Fuzzy match the second token against valid subcommands in this group
+                    String unknownSub = remaining.get(1);
+                    Set<String> groupChildren = collectGroupChildSuffixes(root, potentialGroup);
+                    String closest = StringDistance.findClosest(unknownSub, groupChildren, 3);
+                    if (closest != null) {
+                        String suggestion = "/" + label + " " + potentialGroup + " " + closest;
+                        messages.send(sender, "commands.unknown-subcommand",
+                                "subcommand", unknownSub,
+                                "command", label + " " + potentialGroup);
+                        sendDidYouMean(sender, suggestion);
+                    } else {
+                        messages.send(sender, "commands.unknown-subcommand",
+                                "subcommand", unknownSub,
+                                "command", label + " " + potentialGroup);
+                        helpFormatter.sendGroupHelp(sender, root, label, potentialGroup, 1);
+                    }
+                    return true;
                 }
-                // Send filtered help for this group
-                helpFormatter.sendGroupHelp(sender, root, label, potentialGroup, page);
-                return true;
             }
         }
 
@@ -295,9 +330,29 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
                     messages.send(sender, "commands.usage", "usage", usage);
                 }
                 case TOO_MANY_ARGS -> {
-                    messages.send(sender, "commands.errors.too-many-arguments",
-                            "details", parseEx.getMessage());
-                    messages.send(sender, "commands.usage", "usage", usage);
+                    // Only try fuzzy matching if the node has children (potential subcommand typo)
+                    boolean handled = false;
+                    if (targetNode.hasChildren() && !remaining.isEmpty()) {
+                        String unknownToken = remaining.get(0);
+                        Set<String> childNames = new LinkedHashSet<>(targetNode.children().keySet());
+                        String closest = StringDistance.findClosest(unknownToken, childNames, 3);
+
+                        if (closest != null) {
+                            String suggestion = fullPath.equals(label) ? "/" + label + " " + closest
+                                    : "/" + fullPath + " " + closest;
+                            messages.send(sender, "commands.unknown-subcommand",
+                                    "subcommand", unknownToken,
+                                    "command", fullPath);
+                            sendDidYouMean(sender, suggestion);
+                            handled = true;
+                        }
+                    }
+
+                    if (!handled) {
+                        messages.send(sender, "commands.errors.too-many-arguments",
+                                "details", parseEx.getMessage());
+                        messages.send(sender, "commands.usage", "usage", usage);
+                    }
                 }
                 case UNKNOWN_TYPE -> {
                     // Internal error - log and show generic message
@@ -419,8 +474,91 @@ public final class DefaultCommandDispatcher implements CommandDispatcher {
         helpFormatter.sendHelp(sender, root, path, page);
     }
 
-    private void sendUsageHint(CommandSender sender, CommandNode node, String path) {
-        messages.send(sender, "commands.help.hint", "command", "/" + path + " help");
+    /**
+     * Tries to fuzzy match an unknown subcommand against valid children.
+     * If a close match is found, sends "Did you mean ...?" with a clickable
+     * suggestion.
+     * Otherwise, falls back to showing the relevant help page.
+     */
+    private void sendFuzzySuggestionOrHelp(CommandSender sender, CommandNode targetNode,
+            RootNode root, String label, String fullPath, String unknownSub) {
+        Set<String> childNames = collectSiblingNames(targetNode, root);
+        String closest = StringDistance.findClosest(unknownSub, childNames, 3);
+
+        if (closest != null) {
+            // Build the full suggested command path
+            String suggestion = fullPath.equals(label) ? "/" + label + " " + closest : "/" + fullPath + " " + closest;
+            messages.send(sender, "commands.unknown-subcommand",
+                    "subcommand", unknownSub,
+                    "command", fullPath);
+            sendDidYouMean(sender, suggestion);
+        } else {
+            // No close match - show help
+            messages.send(sender, "commands.unknown-subcommand",
+                    "subcommand", unknownSub,
+                    "command", fullPath);
+            sendHelp(sender, label, 1);
+        }
+    }
+
+    /**
+     * Collects the first-level subcommand names from a node's children.
+     * For multi-word subcommands, only the first word is collected.
+     */
+    private Set<String> collectSiblingNames(CommandNode node, RootNode root) {
+        Set<String> names = new LinkedHashSet<>();
+        CommandNode source = node.hasChildren() ? node : root;
+        for (String childName : source.children().keySet()) {
+            // Only take the first word (e.g., "backup list" -> "backup")
+            String firstWord = childName.contains(" ") ? childName.substring(0, childName.indexOf(' ')) : childName;
+            names.add(firstWord);
+        }
+        // Also add group names
+        if (source instanceof RootNode rootSource) {
+            names.addAll(rootSource.groups().keySet());
+        }
+        return names;
+    }
+
+    /**
+     * Collects the suffix names of subcommands belonging to a group.
+     * E.g., for group "backup", children "backup list" and "backup create"
+     * yield {"list", "create"}.
+     */
+    private Set<String> collectGroupChildSuffixes(RootNode root, String groupPrefix) {
+        Set<String> suffixes = new LinkedHashSet<>();
+        String prefix = groupPrefix + " ";
+        for (String childName : root.children().keySet()) {
+            if (childName.startsWith(prefix)) {
+                String suffix = childName.substring(prefix.length());
+                // Take first word of the suffix for nested groups
+                String firstWord = suffix.contains(" ") ? suffix.substring(0, suffix.indexOf(' ')) : suffix;
+                suffixes.add(firstWord);
+            }
+        }
+        return suffixes;
+    }
+
+    /**
+     * Sends a clickable "Did you mean ...?" message.
+     */
+    private void sendDidYouMean(CommandSender sender, String suggestion) {
+        if (sender instanceof Player player) {
+            String text = messages.get(player, "commands.fuzzy.did-you-mean", "suggestion", suggestion);
+            String hoverText = messages.get(player, "commands.fuzzy.hover");
+
+            BaseComponent[] components = TextComponent.fromLegacyText(text);
+            BaseComponent[] hoverComponents = TextComponent.fromLegacyText(hoverText);
+
+            for (BaseComponent component : components) {
+                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponents));
+                component.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, suggestion));
+            }
+
+            player.spigot().sendMessage(components);
+        } else {
+            messages.send(sender, "commands.fuzzy.did-you-mean", "suggestion", suggestion);
+        }
     }
 
     /**

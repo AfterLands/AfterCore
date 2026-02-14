@@ -107,7 +107,7 @@ public class DefaultInventoryService implements InventoryService {
         boolean debug = plugin.getConfig().getBoolean("debug", false);
         this.itemCache = new ItemCache(plugin.getLogger(), debug);
         this.placeholderResolver = new PlaceholderResolver(scheduler, messageService, debug);
-        this.itemCompiler = new ItemCompiler(scheduler, itemCache, placeholderResolver, plugin.getLogger(), debug);
+        this.itemCompiler = new ItemCompiler(scheduler, itemCache, placeholderResolver, messageService, plugin.getLogger(), debug);
 
         // Phase 3: Initialize pagination + tabs
         this.paginationEngine = new PaginationEngine(configManager);
@@ -230,6 +230,11 @@ public class DefaultInventoryService implements InventoryService {
         }
 
         try {
+            // Set plugin namespace for i18n auto-injection
+            if (context.getPluginNamespace() == null) {
+                context.withPluginNamespace(ownerPlugin.getName().toLowerCase());
+            }
+
             // Invalidate any cached items for this inventory to ensure fresh rendering
             itemCompiler.invalidateCache(config.id());
 
@@ -252,7 +257,9 @@ public class DefaultInventoryService implements InventoryService {
                     dragHandler,
                     animator,
                     titleSupport,
-                    conditionService);
+                    conditionService,
+                    messageService,
+                    placeholderResolver);
 
             // Iniciar title update task se configurado
             if (config.titleUpdateInterval() > 0) {
@@ -267,9 +274,7 @@ public class DefaultInventoryService implements InventoryService {
 
             plugin.getLogger().fine("Opened inventory '" + config.id() + "' owned by " + ownerPlugin.getName() + " for "
                     + player.getName());
-        } catch (
-
-        Exception e) {
+        } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to create inventory view", e);
         }
     }
@@ -337,7 +342,9 @@ public class DefaultInventoryService implements InventoryService {
                         dragHandler,
                         animator,
                         titleSupport,
-                        conditionService);
+                        conditionService,
+                        messageService,
+                        placeholderResolver);
 
                 // Iniciar title update task se configurado
                 if (config.titleUpdateInterval() > 0) {
@@ -430,6 +437,11 @@ public class DefaultInventoryService implements InventoryService {
     public void invalidateItemCache(@NotNull String inventoryId) {
         // Only clear compiled items, NOT the config registration
         itemCompiler.invalidateCache(inventoryId);
+    }
+
+    @Override
+    public void clearPlayerCache(@NotNull UUID playerId) {
+        itemCompiler.clearPlayerCache(playerId);
     }
 
     @Override

@@ -95,7 +95,7 @@ public final class HelpFormatter {
             if (childName.startsWith(groupPrefix + " ")) {
                 // Remove the group prefix from the display name
                 String shortName = childName.substring(groupPrefix.length() + 1);
-                entries.add(new HelpEntry(shortName, child.description(), child.usage(), child.usageHelp(), false));
+                entries.add(new HelpEntry(shortName, child.description(), child.usage(), child.usageHelp(), false, 0));
             }
         }
 
@@ -122,30 +122,75 @@ public final class HelpFormatter {
         }
 
         messages.sendRaw(sender, " ");
-        // Footer (only if multiple pages)
+        // Footer: "← Voltar" link + pagination
+        sendBackLink(sender, label);
         if (totalPages > 1) {
             sendPaginationFooter(sender, groupPath, page, totalPages);
-            messages.sendRaw(sender, " ");
+        }
+        messages.sendRaw(sender, " ");
+    }
+
+    /**
+     * Sends a clickable "← Voltar" link to return to root help.
+     */
+    private void sendBackLink(@NotNull CommandSender sender, @NotNull String rootLabel) {
+        if (sender instanceof Player player) {
+            String text = messages.format(" &8← &7Voltar para &b/" + rootLabel + " help");
+            String hoverText = messages.format("&a► Clique para voltar");
+
+            BaseComponent[] components = TextComponent.fromLegacyText(text);
+            BaseComponent[] hoverComponents = TextComponent.fromLegacyText(hoverText);
+
+            for (BaseComponent component : components) {
+                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, hoverComponents));
+                component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + rootLabel + " help"));
+            }
+
+            player.spigot().sendMessage(components);
+        } else {
+            messages.sendRaw(sender, " &8← &7Voltar para &b/" + rootLabel + " help");
         }
     }
 
     private void sendGroupHeader(@NotNull CommandSender sender, @NotNull RootNode root,
             @NotNull String groupName, @NotNull String path) {
         String plugin = root.helpPrefix() != null ? root.helpPrefix() : root.name().toUpperCase(Locale.ROOT);
-        String groupDesc = root.groups().getOrDefault(groupName, "");
+        String capitalizedGroup = capitalize(groupName);
+        String rootLabel = root.name();
 
-        List<String> headerLines = List.of(
-                " ",
-                " &b&l{plugin} &8┃ &f{group} &7- {description}",
-                " &c<> &7obrigatório &8┃ &d[] &7opcional",
-                " ");
+        // Spacer
+        messages.sendRaw(sender, " ");
 
-        for (String line : headerLines) {
-            String formatted = line.replace("{plugin}", plugin)
-                    .replace("{group}", groupName)
-                    .replace("{description}", groupDesc);
-            messages.sendRaw(sender, formatted);
+        // Breadcrumb line with clickable "Ajuda" link
+        if (sender instanceof Player player) {
+            // Build: " PLUGIN ┃ Ajuda > groupName - description"
+            TextComponent prefix = new TextComponent(messages.format(" &b&l" + plugin + " &8┃ "));
+
+            String breadcrumbText = messages.format("&bAjuda");
+            BaseComponent[] breadcrumbComponents = TextComponent.fromLegacyText(breadcrumbText);
+            BaseComponent[] breadcrumbHover = TextComponent
+                    .fromLegacyText(messages.format("&a► Voltar para ajuda principal"));
+            for (BaseComponent bc : breadcrumbComponents) {
+                bc.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, breadcrumbHover));
+                bc.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + rootLabel + " help"));
+            }
+
+            TextComponent separator = new TextComponent(messages.format(" &8» "));
+            TextComponent groupPart = new TextComponent(messages.format("&f" + capitalizedGroup));
+
+            List<BaseComponent> all = new ArrayList<>();
+            all.add(prefix);
+            Collections.addAll(all, breadcrumbComponents);
+            all.add(separator);
+            all.add(groupPart);
+
+            player.spigot().sendMessage(all.toArray(new BaseComponent[0]));
+        } else {
+            messages.sendRaw(sender, " &b&l" + plugin + " &8┃ &bAjuda &8» &f" + capitalizedGroup);
         }
+
+        messages.sendRaw(sender, " &c<> &7obrigatório &8┃ &d[] &7opcional");
+        messages.sendRaw(sender, " ");
     }
 
     /**
@@ -178,13 +223,15 @@ public final class HelpFormatter {
                 // Add group entry only once
                 if (!processedGroups.contains(matchedGroup)) {
                     processedGroups.add(matchedGroup);
+                    // Count subcommands in this group
+                    int subCount = countGroupSubcommands(sender, root, matchedGroup);
                     entries.add(new HelpEntry(
                             matchedGroup,
                             groups.get(matchedGroup),
                             null, // no usage for groups
                             null, // no usageHelp for groups
-                            true // is group
-                    ));
+                            true, // is group
+                            subCount));
                 }
             } else {
                 // Regular subcommand
@@ -193,7 +240,8 @@ public final class HelpFormatter {
                         child.description(),
                         child.usage(),
                         child.usageHelp(),
-                        false));
+                        false,
+                        0));
             }
         }
 
@@ -211,7 +259,8 @@ public final class HelpFormatter {
     /**
      * Represents a help entry (either a group or a subcommand).
      */
-    private record HelpEntry(String name, String description, String usage, String usageHelp, boolean isGroup) {
+    private record HelpEntry(String name, String description, String usage, String usageHelp, boolean isGroup,
+            int subCount) {
     }
 
     /**
@@ -223,8 +272,15 @@ public final class HelpFormatter {
         String suggestCommand = baseCommand;
 
         if (entry.isGroup) {
-            // Groups show [!] marker
-            displayCommand += " &a[!]";
+            // Show [N cmds] or [!] based on config
+            boolean showSubcount = config.getBoolean("commands.help.show-group-subcount", false);
+            String marker;
+            if (showSubcount && entry.subCount > 0) {
+                marker = "&a[" + entry.subCount + " cmds]";
+            } else {
+                marker = "&a[!]";
+            }
+            displayCommand += " " + marker;
             suggestCommand += " help"; // Suggest help for the group
         } else if (entry.usageHelp != null && !entry.usageHelp.isEmpty()) {
             // Use colored usageHelp for display
@@ -265,10 +321,14 @@ public final class HelpFormatter {
 
         List<String> headerLines = config.getStringList("commands.help.header");
         if (headerLines.isEmpty()) {
+            boolean showSubcount = config.getBoolean("commands.help.show-group-subcount", false);
+            String legend = showSubcount
+                    ? " &a[N] &7sub-cmds &8┃ &c<> &7obrigatório &8┃ &d[] &7opcional"
+                    : " &a[!] &7sub-cmds &8┃ &c<> &7obrigatório &8┃ &d[] &7opcional";
             headerLines = List.of(
                     " ",
                     " &b&l{plugin} &8┃ &fAjuda - &b{command}",
-                    " &a[!] &7sub-cmds &8┃ &c<> &7obrigatório &8┃ &d[] &7opcional",
+                    legend,
                     " ");
         }
 
@@ -278,8 +338,32 @@ public final class HelpFormatter {
         }
     }
 
+    /**
+     * Counts the number of subcommands belonging to a group
+     * that the sender has permission to see.
+     */
+    private int countGroupSubcommands(@NotNull CommandSender sender, @NotNull RootNode root,
+            @NotNull String groupPrefix) {
+        int count = 0;
+        for (SubNode child : root.children().values()) {
+            if (child.permission() != null && !sender.hasPermission(child.permission())) {
+                continue;
+            }
+            if (child.name().startsWith(groupPrefix + " ")) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private String stripColorCodes(String text) {
         return text.replaceAll("&[0-9a-fk-or]", "");
+    }
+
+    private String capitalize(String text) {
+        if (text == null || text.isEmpty())
+            return text;
+        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private void sendPaginationFooter(@NotNull CommandSender sender, @NotNull String path, int currentPage,

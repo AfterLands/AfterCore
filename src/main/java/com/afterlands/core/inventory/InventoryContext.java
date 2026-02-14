@@ -30,6 +30,7 @@ public class InventoryContext {
     private final Map<String, String> placeholders;
     private final UUID playerId;
     private final String inventoryId;
+    private String pluginNamespace;
 
     public InventoryContext(@Nullable UUID playerId, @NotNull String inventoryId) {
         this.playerId = playerId;
@@ -156,6 +157,28 @@ public class InventoryContext {
         return inventoryId;
     }
 
+    /**
+     * Gets the plugin namespace for i18n translation resolution.
+     *
+     * @return Plugin namespace or null if not set
+     */
+    @Nullable
+    public String getPluginNamespace() {
+        return pluginNamespace;
+    }
+
+    /**
+     * Sets the plugin namespace for automatic i18n translation injection.
+     *
+     * @param pluginNamespace Plugin namespace (e.g., "aftertemplate")
+     * @return this for chaining
+     */
+    @NotNull
+    public InventoryContext withPluginNamespace(@Nullable String pluginNamespace) {
+        this.pluginNamespace = pluginNamespace;
+        return this;
+    }
+
     @NotNull
     public Map<String, String> getPlaceholders() {
         return Map.copyOf(placeholders);
@@ -178,6 +201,7 @@ public class InventoryContext {
         InventoryContext copy = new InventoryContext(playerId, inventoryId);
         copy.placeholders.putAll(this.placeholders);
         copy.data.putAll(this.data);
+        copy.pluginNamespace = this.pluginNamespace;
         return copy;
     }
 

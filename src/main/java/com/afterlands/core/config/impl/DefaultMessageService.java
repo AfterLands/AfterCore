@@ -11,6 +11,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,9 +28,16 @@ import java.util.UUID;
  */
 public final class DefaultMessageService implements MessageService {
 
+    /**
+     * Represents a namespace registration that was requested before the real
+     * provider (AfterLanguage) was available.
+     */
+    public record PendingNamespaceRegistration(@NotNull Plugin plugin, @NotNull String namespace) {}
+
     private final Plugin plugin;
     private final ConfigService config;
     private final boolean debug;
+    private final List<PendingNamespaceRegistration> pendingRegistrations = new ArrayList<>();
 
     public DefaultMessageService(@NotNull Plugin plugin, @NotNull ConfigService config, boolean debug) {
         this.plugin = plugin;
@@ -134,8 +143,12 @@ public final class DefaultMessageService implements MessageService {
     public void send(@NotNull Player player, @NotNull MessageKey key, @NotNull Placeholder... placeholders) {
         MessageService delegate = getDelegate();
         if (delegate != null) {
-            delegate.send(player, key, placeholders);
-            return;
+            // Only use delegate if it doesn't result in a missing message
+            String result = delegate.get(player, key, placeholders);
+            if (!isMissing(result, key)) {
+                sendRaw(player, result);
+                return;
+            }
         }
 
         // Fallback: try to resolve from messages.yml using full key
@@ -157,8 +170,11 @@ public final class DefaultMessageService implements MessageService {
     public void send(@NotNull Player player, @NotNull MessageKey key, int count, @NotNull Placeholder... placeholders) {
         MessageService delegate = getDelegate();
         if (delegate != null) {
-            delegate.send(player, key, count, placeholders);
-            return;
+            String result = delegate.get(player, key, count, placeholders);
+            if (!isMissing(result, key)) {
+                sendRaw(player, result);
+                return;
+            }
         }
 
         // Fallback: no pluralization support, just send with count as placeholder
@@ -169,10 +185,31 @@ public final class DefaultMessageService implements MessageService {
     }
 
     @Override
+    public @NotNull String get(@NotNull Player player, @NotNull MessageKey key, int count,
+            @NotNull Placeholder... placeholders) {
+        MessageService delegate = getDelegate();
+        if (delegate != null) {
+            String result = delegate.get(player, key, count, placeholders);
+            if (!isMissing(result, key)) {
+                return result;
+            }
+        }
+
+        // Fallback: just use base get with count placeholder
+        Placeholder[] withCount = new Placeholder[placeholders.length + 1];
+        withCount[0] = Placeholder.of("count", count);
+        System.arraycopy(placeholders, 0, withCount, 1, placeholders.length);
+        return get(player, key, withCount);
+    }
+
+    @Override
     public @NotNull String get(@NotNull Player player, @NotNull MessageKey key, @NotNull Placeholder... placeholders) {
         MessageService delegate = getDelegate();
         if (delegate != null) {
-            return delegate.get(player, key, placeholders);
+            String result = delegate.get(player, key, placeholders);
+            if (!isMissing(result, key)) {
+                return result;
+            }
         }
 
         // Fallback: try to resolve from messages.yml
@@ -190,11 +227,15 @@ public final class DefaultMessageService implements MessageService {
     }
 
     @Override
-    public @NotNull String getOrDefault(@NotNull Player player, @NotNull MessageKey key, @NotNull String defaultValue,
+    public @NotNull String getOrDefault(@NotNull Player player, @NotNull MessageKey key, String defaultValue,
             @NotNull Placeholder... placeholders) {
         MessageService delegate = getDelegate();
         if (delegate != null) {
-            return delegate.getOrDefault(player, key, defaultValue, placeholders);
+            String result = delegate.getOrDefault(player, key, defaultValue, placeholders);
+            // If the delegate returned a valid translation, use it
+            if (!isMissing(result, key)) {
+                return result;
+            }
         }
 
         String message = get(key.fullKey());
@@ -206,8 +247,11 @@ public final class DefaultMessageService implements MessageService {
             return format(Placeholder.replaceAll(message, placeholders));
         }
 
-        // Use provided default
-        return format(Placeholder.replaceAll(defaultValue, placeholders));
+        // Use provided default, or fallback to key path
+        if (defaultValue != null) {
+            return format(Placeholder.replaceAll(defaultValue, placeholders));
+        }
+        return key.path();
     }
 
     @Override
@@ -298,6 +342,58 @@ public final class DefaultMessageService implements MessageService {
         }
         String lang = config.main().getString("language.default");
         return lang != null && !lang.isEmpty() ? lang : "pt_br";
+    }
+
+    @Override
+    public void registerNamespace(@NotNull Plugin registrant, @NotNull String namespace) {
+        MessageService delegate = getDelegate();
+        if (delegate != null) {
+            delegate.registerNamespace(registrant, namespace);
+            return;
+        }
+
+        // Buffer for replay when the real provider (AfterLanguage) registers
+        pendingRegistrations.add(new PendingNamespaceRegistration(registrant, namespace));
+        plugin.getLogger().info("[MessageService] Buffered namespace registration: " + namespace
+                + " (waiting for i18n provider)");
+    }
+
+    /**
+     * Returns and clears all namespace registrations that were buffered
+     * before the real provider was available.
+     *
+     * @return list of pending registrations (never null)
+     */
+    @NotNull
+    public List<PendingNamespaceRegistration> drainPendingNamespaceRegistrations() {
+        if (pendingRegistrations.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<PendingNamespaceRegistration> drained = new ArrayList<>(pendingRegistrations);
+        pendingRegistrations.clear();
+        return drained;
+    }
+
+    private boolean isMissing(String result, MessageKey key) {
+        if (result == null || result.isEmpty())
+            return true;
+
+        // Strip colors to compare literals
+        String stripped = result.replaceAll("&[0-9a-fk-or]", "").replaceAll("§[0-9a-fk-orx]", "");
+
+        // Check for common missing patterns from both AfterCore and AfterLanguage
+        if (stripped.contains("[Missing: " + key.fullKey() + "]"))
+            return true;
+        if (stripped.contains("[Missing: " + key.path() + "]"))
+            return true;
+
+        // Check for raw keys (common fallback in translation engines)
+        if (stripped.equals(key.fullKey()))
+            return true;
+        if (stripped.equals(key.path()))
+            return true;
+
+        return false;
     }
 
     /**

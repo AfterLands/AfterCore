@@ -263,6 +263,40 @@ public final class MessageFacade {
     }
 
     /**
+     * Gets a formatted message for a sender.
+     *
+     * @param sender       Recipient (used for language resolution if player)
+     * @param path         Message path
+     * @param placeholders Key-value pairs for placeholders
+     * @return Formatted message
+     */
+    @NotNull
+    public String get(@NotNull CommandSender sender, @NotNull String path, @NotNull Object... placeholders) {
+        if (sender instanceof Player player && org.bukkit.Bukkit.getPluginManager().isPluginEnabled("AfterLanguage")) {
+            List<Placeholder> phs = new ArrayList<>();
+            for (int i = 0; i < placeholders.length - 1; i += 2) {
+                phs.add(Placeholder.of(String.valueOf(placeholders[i]), placeholders[i + 1]));
+            }
+            return coreMessages.get(player, MessageKey.of("aftercore", path), phs.toArray(new Placeholder[0]));
+        }
+
+        String message = resolve(path);
+        if (message == null) {
+            return format("&c[Missing: " + path + "]");
+        }
+
+        if (placeholders.length > 0) {
+            Map<String, String> map = new HashMap<>();
+            for (int i = 0; i < placeholders.length - 1; i += 2) {
+                map.put(String.valueOf(placeholders[i]), String.valueOf(placeholders[i + 1]));
+            }
+            message = applyPlaceholders(message, map);
+        }
+
+        return format(message);
+    }
+
+    /**
      * Creates a context-specific facade for a plugin.
      *
      * <p>
@@ -286,6 +320,42 @@ public final class MessageFacade {
 
         private PluginMessageFacade(String pluginName) {
             this.pluginName = pluginName;
+        }
+
+        /**
+         * Gets a formatted message for a sender using this plugin's context.
+         *
+         * @param sender       Recipient
+         * @param path         Message path
+         * @param placeholders Key-value pairs
+         * @return Formatted message
+         */
+        @NotNull
+        public String get(@NotNull CommandSender sender, @NotNull String path, @NotNull Object... placeholders) {
+            if (sender instanceof Player player
+                    && org.bukkit.Bukkit.getPluginManager().isPluginEnabled("AfterLanguage")) {
+                List<Placeholder> phs = new ArrayList<>();
+                for (int i = 0; i < placeholders.length - 1; i += 2) {
+                    phs.add(Placeholder.of(String.valueOf(placeholders[i]), placeholders[i + 1]));
+                }
+                return MessageFacade.this.coreMessages.get(player, MessageKey.of(pluginName, path),
+                        phs.toArray(new Placeholder[0]));
+            }
+
+            String message = resolve(pluginName, path);
+            if (message == null) {
+                return format("&c[Missing: " + path + "]");
+            }
+
+            if (placeholders.length > 0) {
+                Map<String, String> map = new HashMap<>();
+                for (int i = 0; i < placeholders.length - 1; i += 2) {
+                    map.put(String.valueOf(placeholders[i]), String.valueOf(placeholders[i + 1]));
+                }
+                message = applyPlaceholders(message, map);
+            }
+
+            return format(message);
         }
 
         public void send(@NotNull CommandSender sender, @NotNull String path) {

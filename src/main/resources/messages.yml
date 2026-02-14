@@ -20,6 +20,9 @@ commands:
     world-not-found: "&c✖ Mundo &f{world} &cnão existe."
     invalid-enum: "&c✖ Valor &f{value} &cinválido. Opções: &f{options}"
   cooldown: "&c✖ Aguarde &f{remaining} &cpara usar esse comando novamente."
+  fuzzy:
+    did-you-mean: "&7Você quis dizer &b{suggestion}&7?"
+    hover: "&a► Clique para executar"
   help:
     hint: "&7Use &f{command} &7para ver os subcomandos."
     header:

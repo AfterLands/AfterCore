@@ -1,6 +1,8 @@
 package com.afterlands.core.inventory.view;
 
+import com.afterlands.core.api.messages.MessageKey;
 import com.afterlands.core.concurrent.SchedulerService;
+import com.afterlands.core.config.MessageService;
 import com.afterlands.core.inventory.InventoryConfig;
 import com.afterlands.core.inventory.InventoryContext;
 import com.afterlands.core.conditions.ConditionContext;
@@ -11,6 +13,7 @@ import com.afterlands.core.inventory.animation.InventoryAnimator;
 import com.afterlands.core.inventory.drag.DragAndDropHandler;
 import com.afterlands.core.inventory.item.GuiItem;
 import com.afterlands.core.inventory.item.ItemCompiler;
+import com.afterlands.core.inventory.item.PlaceholderResolver;
 import com.afterlands.core.inventory.pagination.PaginatedView;
 import com.afterlands.core.inventory.pagination.PaginationEngine;
 import com.afterlands.core.inventory.tab.TabManager;
@@ -58,6 +61,8 @@ public class InventoryViewHolder implements Listener {
     private final SchedulerService scheduler;
     private final ItemCompiler itemCompiler;
     private final ConditionService conditionService;
+    private final MessageService messageService;
+    private final PlaceholderResolver placeholderResolver;
 
     // Pagination & Tabs
     private final PaginationEngine paginationEngine;
@@ -102,7 +107,9 @@ public class InventoryViewHolder implements Listener {
             @NotNull DragAndDropHandler dragHandler,
             @NotNull InventoryAnimator animator,
             @NotNull TitleUpdateSupport titleSupport,
-            @NotNull ConditionService conditionService) {
+            @NotNull ConditionService conditionService,
+            @NotNull MessageService messageService,
+            @NotNull PlaceholderResolver placeholderResolver) {
         this.plugin = plugin;
         this.player = player;
         this.config = config;
@@ -117,10 +124,12 @@ public class InventoryViewHolder implements Listener {
         this.animator = animator;
         this.titleSupport = titleSupport;
         this.conditionService = conditionService;
+        this.messageService = messageService;
+        this.placeholderResolver = placeholderResolver;
         this.shared = false;
 
         // Cache initial title
-        this.currentTitle = context.resolvePlaceholders(config.title());
+        this.currentTitle = resolveTitle(config.title());
 
         // Initialize tab state
         this.tabState = tabManager.createInitialState(config, player.getUniqueId());
@@ -147,7 +156,21 @@ public class InventoryViewHolder implements Listener {
      * Cria o Bukkit Inventory.
      */
     private void createInventory() {
-        String title = context.resolvePlaceholders(config.title()).replace("&", "§");
+        String rawTitle = config.title();
+
+        // Auto-inject i18n title translation
+        if (player != null && context.getPluginNamespace() != null) {
+            String ns = context.getPluginNamespace();
+            String invId = config.id();
+            if (invId.contains(":")) {
+                invId = invId.substring(invId.indexOf(':') + 1);
+            }
+            String key = "gui." + invId + ".title";
+            rawTitle = messageService.getOrDefault(player,
+                    MessageKey.of(ns, key), rawTitle);
+        }
+
+        String title = placeholderResolver.resolve(rawTitle, player, context).replace("&", "§");
         int size = config.getSizeInSlots();
 
         // Validate title length (1.8.8 limit: 32 chars)
@@ -508,6 +531,28 @@ public class InventoryViewHolder implements Listener {
     }
 
     /**
+     * Resolves the inventory title with i18n translation support.
+     *
+     * @param rawTitle Raw title from config
+     * @return Resolved title with i18n and placeholders applied
+     */
+    @NotNull
+    private String resolveTitle(@NotNull String rawTitle) {
+        String title = rawTitle;
+        if (player != null && context.getPluginNamespace() != null) {
+            String ns = context.getPluginNamespace();
+            String invId = config.id();
+            if (invId.contains(":")) {
+                invId = invId.substring(invId.indexOf(':') + 1);
+            }
+            String key = "gui." + invId + ".title";
+            title = messageService.getOrDefault(player,
+                    MessageKey.of(ns, key), title);
+        }
+        return placeholderResolver.resolve(title, player, context);
+    }
+
+    /**
      * Abre o inventário para o player.
      */
     public void open() {
@@ -518,7 +563,7 @@ public class InventoryViewHolder implements Listener {
 
         // Check if title needs update due to context changes (e.g. pagination {page})
         // This avoids opening with wrong title then swapping (flicker/empty bug)
-        String resolved = context.resolvePlaceholders(config.title());
+        String resolved = resolveTitle(config.title());
         if (!resolved.equals(currentTitle)) {
             // Update cache
             currentTitle = resolved;
@@ -650,8 +695,8 @@ public class InventoryViewHolder implements Listener {
             return;
         }
 
-        // Resolver placeholders
-        String resolved = context.resolvePlaceholders(newTitle);
+        // Resolver placeholders with i18n
+        String resolved = resolveTitle(newTitle);
 
         // Evitar update desnecessário (cache optimization)
         if (resolved.equals(currentTitle)) {

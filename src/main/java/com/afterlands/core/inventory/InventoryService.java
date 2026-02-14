@@ -217,6 +217,18 @@ public interface InventoryService {
         void invalidateItemCache(@NotNull String inventoryId);
 
         /**
+         * Limpa apenas entradas de cache associadas a um jogador.
+         *
+         * <p>
+         * Usado quando dados que afetam renderização por jogador mudam em runtime
+         * (ex: idioma, placeholders por perfil), evitando limpar cache global.
+         * </p>
+         *
+         * @param playerId UUID do jogador
+         */
+        void clearPlayerCache(@NotNull UUID playerId);
+
+        /**
          * Obtém o serviço de templates de itens.
          *
          * @return Serviço para carregar itens como templates

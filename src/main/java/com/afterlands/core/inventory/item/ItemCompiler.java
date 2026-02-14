@@ -1,6 +1,8 @@
 package com.afterlands.core.inventory.item;
 
+import com.afterlands.core.api.messages.MessageKey;
 import com.afterlands.core.concurrent.SchedulerService;
+import com.afterlands.core.config.MessageService;
 import com.afterlands.core.inventory.InventoryContext;
 import com.afterlands.core.inventory.cache.CacheKey;
 import com.afterlands.core.inventory.cache.ItemCache;
@@ -14,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
@@ -48,6 +51,7 @@ public class ItemCompiler {
     private final SchedulerService scheduler;
     private final ItemCache cache;
     private final PlaceholderResolver placeholderResolver;
+    private final MessageService messageService;
     private final Logger logger;
     private final boolean debug;
 
@@ -64,11 +68,13 @@ public class ItemCompiler {
             @NotNull SchedulerService scheduler,
             @NotNull ItemCache cache,
             @NotNull PlaceholderResolver placeholderResolver,
+            @NotNull MessageService messageService,
             @NotNull Logger logger,
             boolean debug) {
         this.scheduler = scheduler;
         this.cache = cache;
         this.placeholderResolver = placeholderResolver;
+        this.messageService = messageService;
         this.logger = logger;
         this.debug = debug;
     }
@@ -106,7 +112,7 @@ public class ItemCompiler {
 
         if (isCacheable) {
             // Tenta obter do cache
-            CacheKey cacheKey = buildCacheKey(item, mergedContext);
+            CacheKey cacheKey = buildCacheKey(item, player, mergedContext);
 
             InventoryContext finalContext = mergedContext;
             return cache.get(
@@ -154,17 +160,50 @@ public class ItemCompiler {
             return itemStack;
         }
 
-        // 2. Display name (resolve placeholders)
-        if (item.getName() != null && !item.getName().isEmpty()) {
-            String resolvedName = placeholderResolver.resolve(item.getName(), player, context);
+        // 2. Auto-inject i18n translations (before placeholder resolution)
+        String displayName = item.getName();
+        List<String> displayLore = item.getLore();
+
+        if (player != null && context.getPluginNamespace() != null) {
+            String ns = context.getPluginNamespace();
+            // Extract local inventory ID (strip namespace prefix like "PluginName:")
+            String invId = context.getInventoryId();
+            if (invId.contains(":")) {
+                invId = invId.substring(invId.indexOf(':') + 1);
+            }
+            String itemKey = item.getType() != null && !item.getType().isEmpty()
+                    ? item.getType() : "slot-" + item.getSlot();
+
+            // Try translation for name
+            if (displayName != null && !displayName.isBlank()) {
+                String translationKey = "gui." + invId + "." + itemKey + ".name";
+                String translated = messageService.getOrDefault(player,
+                        MessageKey.of(ns, translationKey), displayName);
+                displayName = translated;
+            }
+
+            // Try translation for lore
+            if (displayLore != null && !displayLore.isEmpty()) {
+                String loreKey = "gui." + invId + "." + itemKey + ".lore";
+                String loreTranslated = messageService.getOrDefault(player,
+                        MessageKey.of(ns, loreKey), null);
+                if (loreTranslated != null && !loreTranslated.equals(loreKey)) {
+                    displayLore = java.util.Arrays.asList(loreTranslated.split("\n"));
+                }
+            }
+        }
+
+        // 2b. Display name (resolve placeholders)
+        if (displayName != null && !displayName.isEmpty()) {
+            String resolvedName = placeholderResolver.resolve(displayName, player, context);
             meta.setDisplayName(resolvedName.replace("&", "§"));
         }
 
         // 3. Lore (resolve placeholders with multiline expansion support)
-        if (item.getLore() != null && !item.getLore().isEmpty()) {
+        if (displayLore != null && !displayLore.isEmpty()) {
             List<String> resolvedLore = new java.util.ArrayList<>();
 
-            for (String line : item.getLore()) {
+            for (String line : displayLore) {
                 String resolved = placeholderResolver.resolve(line, player, context);
 
                 // Check if line contains newline separator (\n) - expand to multiple lines
@@ -311,8 +350,13 @@ public class ItemCompiler {
      * @return CacheKey
      */
     @NotNull
-    private CacheKey buildCacheKey(@NotNull GuiItem item, @NotNull InventoryContext context) {
+    private CacheKey buildCacheKey(
+            @NotNull GuiItem item,
+            @Nullable Player player,
+            @NotNull InventoryContext context) {
         String itemKey = item.getType() + ":" + item.getSlot();
+        UUID playerId = player != null ? player.getUniqueId() : null;
+        boolean requiresPlayerScope = playerId != null && context.getPluginNamespace() != null;
 
         // Check if item depends on context keys ({key} or {lang:...})
         boolean isContextDependent = false;
@@ -334,10 +378,14 @@ public class ItemCompiler {
 
         if (isContextDependent) {
             // Item dinâmico (depende do contexto): inclui hash dos placeholders
-            return CacheKey.ofDynamic(context.getInventoryId(), itemKey, context.getPlaceholders());
+            return requiresPlayerScope
+                    ? CacheKey.ofDynamic(context.getInventoryId(), itemKey, context.getPlaceholders(), playerId)
+                    : CacheKey.ofDynamic(context.getInventoryId(), itemKey, context.getPlaceholders());
         } else {
             // Item estático: cache simples
-            return CacheKey.ofStatic(context.getInventoryId(), itemKey);
+            return requiresPlayerScope
+                    ? CacheKey.ofStatic(context.getInventoryId(), itemKey, playerId)
+                    : CacheKey.ofStatic(context.getInventoryId(), itemKey);
         }
     }
 
@@ -377,6 +425,20 @@ public class ItemCompiler {
 
         if (debug) {
             logger.info("Cleared all item caches");
+        }
+    }
+
+    /**
+     * Limpa cache apenas de um jogador.
+     *
+     * @param playerId UUID do jogador
+     */
+    public void clearPlayerCache(@NotNull UUID playerId) {
+        cache.invalidateByPlayer(playerId);
+        placeholderResolver.clearCache(playerId);
+
+        if (debug) {
+            logger.fine("Cleared item and placeholder caches for player: " + playerId);
         }
     }
 

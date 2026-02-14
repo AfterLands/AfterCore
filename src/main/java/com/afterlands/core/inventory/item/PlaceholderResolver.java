@@ -378,6 +378,15 @@ public class PlaceholderResolver {
     }
 
     /**
+     * Limpa cache de placeholders para um jogador específico.
+     *
+     * @param playerId UUID do jogador
+     */
+    public void clearCache(@NotNull UUID playerId) {
+        cache.asMap().keySet().removeIf(key -> playerId.equals(key.playerId()));
+    }
+
+    /**
      * Cache key para placeholders resolvidos.
      */
     private record CacheKey(

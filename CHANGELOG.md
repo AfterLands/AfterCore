@@ -5,6 +5,52 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2026-02-13 (Per-Player Inventory Cache Invalidation)
+
+### Added
+- **InventoryService API**:
+  - Added `clearPlayerCache(UUID playerId)` to invalidate inventory caches only for a single player.
+
+### Changed
+- **Inventory cache keys**:
+  - `CacheKey` now supports optional `playerId` scope.
+  - Added player-scoped factory methods and matching helper for targeted invalidation.
+- **Item compilation cache behavior**:
+  - `ItemCompiler` now builds player-scoped cache keys for i18n/plugin-context inventory rendering.
+  - Prevents stale static items from leaking across players after language changes.
+
+### Fixed
+- **Language switch stale items in GUI**:
+  - Added targeted invalidation pipeline:
+    - `DefaultInventoryService.clearPlayerCache(...)`
+    - `ItemCompiler.clearPlayerCache(...)`
+    - `ItemCache.invalidateByPlayer(...)`
+    - `PlaceholderResolver.clearCache(UUID)`
+  - Removes need for global `clearCache()` when only one player's context changed.
+
+## [1.5.5] - 2026-02-11 (Command UX Update)
+
+### Added
+- **Command Suggestions (Fuzzy Matching)**:
+  - Typos in subcommands now trigger a "Did you mean...?" message using Levenshtein distance.
+  - Automatic fallback to help for unknown commands.
+  - Added `commands.fuzzy` keys to `messages.yml` for localization.
+- **Interactive Help**:
+  - **Breadcrumbs**: Group help now shows `Ajuda » Group Name` (capitalized).
+  - **Back Links**: Clickable "← Voltar" link in group help to return to root help.
+  - **Subcommand Counts**: Groups now display `[N cmds]` or `[!]` based on config.
+  - Config key `commands.help.show-group-subcount` (default: false).
+- **MessageFacade Extensions**:
+  - Added `get()` methods for retrieving formatted messages with placeholders and i18n support.
+
+- **Group & Root Fuzzy Matching**: 
+  - Properly match typos within command groups (e.g., `/alang backup lis5` -> `list`).
+  - Intercept invalid tokens for root commands (e.g., `/alang al3456`) to trigger fuzzy matching or help fallback before execution.
+- Optimized `TOO_MANY_ARGS` error handling to provide clickable suggestions or automatically show the relevant help menu.
+  - **Hybrid Logic**: Leaf commands show strict usage, while parent commands try fuzzy matching for subcommands.
+- **Message Resolution Fallback**: `DefaultMessageService` now falls back to local `messages.yml` if the external provider (AfterLanguage) fails to resolve a key (returns raw key).
+- **Pluralization Support**: Added `get(Player, MessageKey, int, Placeholder...)` to `MessageService` interface for pluralized message retrieval.
+
 ## [1.5.4] - 2026-02-06 (Inventory Fixes)
 
 ### Fixed (Inventory Framework)

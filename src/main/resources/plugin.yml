@@ -5,16 +5,13 @@ build-date: '${maven.build.timestamp}'
 author: AfterLands
 description: AfterLands - Core Library Plugin
 softdepend: [ProtocolLib, PlaceholderAPI, DecentHolograms]
-
 commands:
   acore:
     description: AfterCore diagnostics and admin commands
     usage: /acore <status|db|threads|system|metrics|all>
     permission: aftercore.admin
     permission-message: You don't have permission to use this command
-
 permissions:
   aftercore.admin:
     description: Access to AfterCore admin commands
     default: op
-

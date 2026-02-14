@@ -6,6 +6,7 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -183,6 +184,19 @@ public class ItemCache {
 
         if (debug) {
             logger.fine("Invalidated cache key: " + key);
+        }
+    }
+
+    /**
+     * Invalida cache de todas as keys com escopo de jogador.
+     *
+     * @param playerId UUID do jogador
+     */
+    public void invalidateByPlayer(@NotNull UUID playerId) {
+        cache.asMap().keySet().removeIf(key -> key.matchesPlayer(playerId));
+
+        if (debug) {
+            logger.fine("Invalidated cache for player: " + playerId);
         }
     }
 

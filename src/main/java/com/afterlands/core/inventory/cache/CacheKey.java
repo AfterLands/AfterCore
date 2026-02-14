@@ -22,7 +22,8 @@ import java.util.Objects;
 public record CacheKey(
         @NotNull String inventoryId,
         @NotNull String itemKey,
-        int placeholderHash
+        int placeholderHash,
+        @Nullable java.util.UUID playerId
 ) {
 
     /**
@@ -34,7 +35,24 @@ public record CacheKey(
      */
     @NotNull
     public static CacheKey ofStatic(@NotNull String inventoryId, @NotNull String itemKey) {
-        return new CacheKey(inventoryId, itemKey, 0);
+        return new CacheKey(inventoryId, itemKey, 0, null);
+    }
+
+    /**
+     * Cria cache key para item estático com escopo de jogador.
+     *
+     * @param inventoryId ID do inventário
+     * @param itemKey Chave do item (type + slot)
+     * @param playerId UUID do jogador para escopo da key
+     * @return Cache key estática
+     */
+    @NotNull
+    public static CacheKey ofStatic(
+            @NotNull String inventoryId,
+            @NotNull String itemKey,
+            @Nullable java.util.UUID playerId
+    ) {
+        return new CacheKey(inventoryId, itemKey, 0, playerId);
     }
 
     /**
@@ -52,7 +70,27 @@ public record CacheKey(
             @NotNull Map<String, String> placeholders
     ) {
         int hash = computePlaceholderHash(placeholders);
-        return new CacheKey(inventoryId, itemKey, hash);
+        return new CacheKey(inventoryId, itemKey, hash, null);
+    }
+
+    /**
+     * Cria cache key para item dinâmico com escopo de jogador.
+     *
+     * @param inventoryId ID do inventário
+     * @param itemKey Chave do item (type + slot)
+     * @param placeholders Mapa de placeholders resolvidos
+     * @param playerId UUID do jogador para escopo da key
+     * @return Cache key dinâmica
+     */
+    @NotNull
+    public static CacheKey ofDynamic(
+            @NotNull String inventoryId,
+            @NotNull String itemKey,
+            @NotNull Map<String, String> placeholders,
+            @Nullable java.util.UUID playerId
+    ) {
+        int hash = computePlaceholderHash(placeholders);
+        return new CacheKey(inventoryId, itemKey, hash, playerId);
     }
 
     /**
@@ -91,10 +129,11 @@ public record CacheKey(
      */
     @Override
     public String toString() {
+        String playerScope = playerId != null ? ":player:" + playerId : "";
         if (isStatic()) {
-            return String.format("inventory:%s:item:%s:static", inventoryId, itemKey);
+            return String.format("inventory:%s:item:%s:static%s", inventoryId, itemKey, playerScope);
         }
-        return String.format("inventory:%s:item:%s:ph_hash_%d", inventoryId, itemKey, placeholderHash);
+        return String.format("inventory:%s:item:%s:ph_hash_%d%s", inventoryId, itemKey, placeholderHash, playerScope);
     }
 
     /**
@@ -116,5 +155,15 @@ public record CacheKey(
      */
     public boolean matchesItem(@NotNull String targetInventoryId, @NotNull String targetItemKey) {
         return this.inventoryId.equals(targetInventoryId) && this.itemKey.equals(targetItemKey);
+    }
+
+    /**
+     * Pattern matching para invalidação por jogador.
+     *
+     * @param targetPlayerId UUID do jogador
+     * @return true se esta key está no escopo do jogador
+     */
+    public boolean matchesPlayer(@NotNull java.util.UUID targetPlayerId) {
+        return targetPlayerId.equals(this.playerId);
     }
 }
