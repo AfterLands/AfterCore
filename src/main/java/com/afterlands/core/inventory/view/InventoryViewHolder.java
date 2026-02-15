@@ -400,13 +400,13 @@ public class InventoryViewHolder implements Listener {
 
             // DEBUG: Log each item
             if (debug) {
-                plugin.getLogger().info("[ViewHolder] DEBUG: Item at slot " + rawItem.getSlot()
-                        + " - type=" + guiItem.getType()
-                        + ", material=" + guiItem.getMaterial()
-                        + ", actions=" + guiItem.getActions().size()
-                        + ", hasClickHandlers=" + guiItem.hasClickHandlers()
-                        + ", duplicate=" + (dupSlots.isEmpty() ? "none" : (dupSlots.get(0) == -1 ? "all" : dupSlots))
-                        + ", variant=" + (guiItem != rawItem));
+                        plugin.getLogger().info("[ViewHolder] DEBUG: Item at slot " + rawItem.getSlot()
+                                + " - type=" + guiItem.getType()
+                                + ", material=" + guiItem.getMaterial()
+                                + ", actions=" + guiItem.getActions().size()
+                                + ", hasClickHandlers=" + guiItem.hasClickHandlers()
+                                + ", duplicate=" + (dupSlots.isEmpty() ? "none" : (dupSlots.get(0) == -1 ? "all" : dupSlots))
+                                + ", variant=" + (guiItem != rawItem));
             }
         }
 
@@ -820,30 +820,43 @@ public class InventoryViewHolder implements Listener {
                 .findFirst()
                 .ifPresent(i -> {
                     contentItems.set(i, item);
-                    refresh();
+                    updateSlot(slot);
                 });
     }
 
     /**
-     * Replaces an existing item in the content list based on its Item Type.
-     * @param itemType The ID of the item to be replaced.
-     * @param newItem The new GuiItem to put in its place.
+     * Procura um item na lista de conteúdo pelo seu ID (Type).
+     * @param itemType O ID/Tipo do item definido no YAML.
+     * @return Um Optional contendo o GuiItem se encontrado, ou vazio caso contrário.
      */
-    public void setContentItem(@NotNull String itemType, @NotNull GuiItem newItem) {
-        this.contentItems = this.contentItems.stream()
-                .map(current -> itemType.equals(current.getType()) ? newItem : current)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        refresh();
+    @NotNull
+    public Optional<GuiItem> getContentItem(@NotNull String itemType) {
+        return contentItems.stream()
+                .filter(item -> itemType.equals(item.getType()))
+                .findFirst();
     }
 
     /**
-     * Re-renderiza um slot específico.
+     * Re-renderiza um slot específico sem reconstruir o inventário todo.
      *
      * @param slot Índice do slot
      */
     public void updateSlot(int slot) {
-        // TODO: Implementação completa
+        if (slot < 0 || slot >= inventory.getSize()) return;
+
+        GuiItem guiItem = contentItems.stream()
+                .filter(i -> i.getSlot() == slot)
+                .findFirst()
+                .orElse(null);
+
+        if (guiItem == null) return;
+
+        itemCompiler.compile(guiItem, player, context).thenAccept(stack -> {
+            scheduler.runSync(() -> {
+                inventory.setItem(slot, stack);
+                slotToGuiItem.put(slot, guiItem);
+            });
+        });
     }
 
     /**
