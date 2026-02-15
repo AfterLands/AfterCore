@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -129,11 +130,10 @@ public interface InventoryService {
          * e o jogador não possua uma sessão válida, um log informativo será gerado.</p>
          *
          * @param playerId O {@link UUID} do jogador para o qual deseja obter o inventário.
-         * @return O {@link InventoryViewHolder} ativo, ou {@code null} caso o jogador não tenha
-         * nenhum inventário registrado no momento.
+         * @return An {@link Optional} retorna o holder, senão vazio.
          */
         @Nullable
-        InventoryViewHolder getActiveInventory(@NotNull UUID playerId);
+        Optional<InventoryViewHolder> getActiveInventory(@NotNull UUID playerId);
 
         /**
          * Salva o estado de um inventário no banco de dados.

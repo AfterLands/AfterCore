@@ -829,7 +829,7 @@ public class InventoryViewHolder implements Listener {
      * @param itemType The ID of the item to be replaced.
      * @param newItem The new GuiItem to put in its place.
      */
-    public void setContentItemById(@NotNull String itemType, @NotNull GuiItem newItem) {
+    public void setContentItem(@NotNull String itemType, @NotNull GuiItem newItem) {
         this.contentItems = this.contentItems.stream()
                 .map(current -> itemType.equals(current.getType()) ? newItem : current)
                 .collect(Collectors.toCollection(ArrayList::new));

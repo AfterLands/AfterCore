@@ -33,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -487,15 +488,18 @@ public class DefaultInventoryService implements InventoryService {
     /**
      * Obtém holder ativo de um player.
      */
-    @Nullable
-    public InventoryViewHolder getActiveInventory(@NotNull UUID playerId) {
+    @NotNull
+    public Optional<InventoryViewHolder> getActiveInventory(@NotNull UUID playerId) {
         InventoryViewHolder holder = activeInventories.get(playerId);
-        if (holder == null) {
-            if (debug) plugin.getLogger().info("Player " + playerId +  " has no active inventory");
 
-            return null;
+        if (holder == null) {
+            if (debug) {
+                plugin.getLogger().info("Player " + playerId + " has no active inventory");
+            }
+            return Optional.empty();
         }
-        return holder;
+
+        return Optional.of(holder);
     }
 
     /**
