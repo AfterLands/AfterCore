@@ -145,8 +145,14 @@ public class GuiItem {
         }
 
         // Enchantment glow
+        boolean isHeadItem = material == Material.SKULL_ITEM && data == 3;
+        boolean glowAppliedOnMeta = false;
+        if (enchanted && !isHeadItem) {
+            glowAppliedOnMeta = meta.addEnchant(Enchantment.DURABILITY, 1, true);
+        }
+
         if (enchanted) {
-            meta.addEnchant(Enchantment.DURABILITY, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
 
         // Hide flags
@@ -155,6 +161,11 @@ public class GuiItem {
         }
 
         item.setItemMeta(meta);
+
+        // Fallback for non-enchantable materials (Paper, Flint, Skull, etc.)
+        if (enchanted && !glowAppliedOnMeta && !isHeadItem) {
+            item.addUnsafeEnchantment(Enchantment.DURABILITY, 1);
+        }
 
         // Apply NBT tags via NBTItemBuilder
         if (!nbtTags.isEmpty()) {

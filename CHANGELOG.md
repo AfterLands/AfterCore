@@ -5,6 +5,25 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.7] - 2026-02-17 (RPS Inventory State Update & Skull Integrity)
+
+### Fixed
+- **InventoryViewHolder.setContentItem slot semantics**:
+  - Corrected replacement logic to update by real inventory slot instead of list index.
+  - Added safe fallback to append when slot mapping is not yet present.
+- **Runtime item update cache invalidation**:
+  - `setContentItem(...)` now invalidates `ItemCompiler` cache for updated `type:slot` keys.
+  - Prevents stale cached `ItemStack` reuse when GUI state changes at runtime.
+- **Template cloning completeness**:
+  - `DefaultItemTemplateService.loadTemplate(...)` now preserves full template metadata:
+    - `data`, `amount`, `headType`, `headValue`
+    - `hideFlags`, `actions`, `nbtTags`, click handlers, and cache-related fields
+  - Fixes skull texture loss when switching between inventory state templates.
+- **Glow and head compatibility**:
+  - Enchantment glow pipeline now skips applying enchantments to skull heads.
+  - Added `HIDE_ENCHANTS` when glow is requested so enchant text is not shown in tooltip.
+  - Kept glow fallback for non-enchantable non-head items.
+
 ## [1.5.6] - 2026-02-13 (Per-Player Inventory Cache Invalidation)
 
 ### Added

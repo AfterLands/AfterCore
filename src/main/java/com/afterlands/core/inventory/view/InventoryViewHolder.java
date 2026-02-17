@@ -815,13 +815,35 @@ public class InventoryViewHolder implements Listener {
      * @param item The GuiItem to set.
      */
     public void setContentItem(int slot, @NotNull GuiItem item) {
-        IntStream.range(0, contentItems.size())
-                .filter(i -> i == slot)
+        GuiItem previous = null;
+
+        int index = IntStream.range(0, contentItems.size())
+                .filter(i -> contentItems.get(i).getSlot() == slot)
                 .findFirst()
-                .ifPresent(i -> {
-                    contentItems.set(i, item);
-                    updateSlot(slot);
-                });
+                .orElse(-1);
+
+        if (index >= 0) {
+            previous = contentItems.get(index);
+            contentItems.set(index, item);
+        } else {
+            contentItems.add(item);
+        }
+
+        String newItemKey = item.getType() + ":" + slot;
+        itemCompiler.invalidateCache(context.getInventoryId(), newItemKey);
+        if (!context.getInventoryId().equals(config.id())) {
+            itemCompiler.invalidateCache(config.id(), newItemKey);
+        }
+
+        if (previous != null && previous.getType() != null && !previous.getType().equals(item.getType())) {
+            String previousItemKey = previous.getType() + ":" + slot;
+            itemCompiler.invalidateCache(context.getInventoryId(), previousItemKey);
+            if (!context.getInventoryId().equals(config.id())) {
+                itemCompiler.invalidateCache(config.id(), previousItemKey);
+            }
+        }
+
+        updateSlot(slot);
     }
 
     /**

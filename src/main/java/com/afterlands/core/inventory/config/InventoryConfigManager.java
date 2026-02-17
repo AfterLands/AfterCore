@@ -305,13 +305,15 @@ public class InventoryConfigManager {
 
     @NotNull
     private List<GuiItem> parseItems(@Nullable ConfigurationSection section) {
-        if (section == null) return List.of();
+        if (section == null)
+            return List.of();
 
         List<GuiItem> items = new ArrayList<>();
 
         for (String slotKey : section.getKeys(false)) {
             ConfigurationSection itemSection = section.getConfigurationSection(slotKey);
-            if (itemSection == null) continue;
+            if (itemSection == null)
+                continue;
 
             List<Integer> slots;
             try {
@@ -349,8 +351,10 @@ public class InventoryConfigManager {
     /**
      * Parse de slot range.
      * * @param slotKey A chave do slot (ex: "11", "0-8", "p1_head_chosen")
+     * 
      * @return Lista de slots
-     * @throws NumberFormatException Se a chave não for um padrão numérico (identificando um template)
+     * @throws NumberFormatException Se a chave não for um padrão numérico
+     *                               (identificando um template)
      */
     @NotNull
     private List<Integer> parseSlotRange(@NotNull String slotKey) throws NumberFormatException {
@@ -519,12 +523,14 @@ public class InventoryConfigManager {
             // duplicates/order
             // But usually it's one or the other. If both exist, we append.
             if (actions.isEmpty()) {
-                builder.actions(extraActions);
+                actions = extraActions;
+                builder.actions(actions);
             } else {
                 // Create mutable copy if needed and append
                 List<String> combined = new ArrayList<>(actions);
                 combined.addAll(extraActions);
-                builder.actions(combined);
+                actions = combined;
+                builder.actions(actions);
             }
         }
 

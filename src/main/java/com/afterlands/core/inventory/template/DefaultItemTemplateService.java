@@ -53,7 +53,27 @@ public class DefaultItemTemplateService implements ItemTemplateService {
         // Clone and apply placeholders
         GuiItem.Builder builder = new GuiItem.Builder()
                 .type(template.getType())
-                .material(template.getMaterial());
+                .material(template.getMaterial())
+                .data(template.getData())
+                .amount(template.getAmount())
+                .enabled(template.isEnabled())
+                .enchanted(template.isEnchanted())
+                .hideFlags(template.isHideFlags())
+                .actions(template.getActions())
+                .headType(template.getHeadType())
+                .allowDrag(template.isAllowDrag())
+                .dragAction(template.getDragAction())
+                .cacheable(template.isCacheable())
+                .dynamicPlaceholders(template.getDynamicPlaceholders())
+                .viewConditions(template.getViewConditions())
+                .clickConditions(template.getClickConditions())
+                .enchantments(template.getEnchantments())
+                .customModelData(template.getCustomModelData())
+                .variantRefs(template.getVariantRefs())
+                .inlineVariants(template.getInlineVariants())
+                .nbtTags(template.getNbtTags())
+                .withPlaceholders(template.getItemPlaceholders())
+                .clickHandlers(template.getClickHandlers());
 
         if (template.getName() != null) {
             builder.name(applyPlaceholders(template.getName(), placeholders));
@@ -67,11 +87,9 @@ public class DefaultItemTemplateService implements ItemTemplateService {
             builder.lore(newLore);
         }
 
-        // Copy other properties if necessary (e.g. model data, etc)
-        // For now, names and lores are the most dynamic parts.
-        // If GuiItem has other properties like CustomModelData, we should copy them
-        // too.
-        // Assuming minimal copy for now as per previous implementation requirements.
+        if (template.getHeadValue() != null) {
+            builder.headValue(applyPlaceholders(template.getHeadValue(), placeholders));
+        }
 
         return builder;
     }

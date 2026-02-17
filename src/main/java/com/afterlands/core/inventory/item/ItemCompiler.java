@@ -221,8 +221,11 @@ public class ItemCompiler {
         }
 
         // 4. Enchantment glow (simple glow effect)
-        if (item.isEnchanted()) {
-            meta.addEnchant(Enchantment.DURABILITY, 1, true);
+        boolean glowRequested = item.isEnchanted();
+        boolean isHeadItem = item.getMaterial() == Material.SKULL_ITEM && item.getData() == 3;
+        boolean glowAppliedOnMeta = false;
+        if (glowRequested && !isHeadItem) {
+            glowAppliedOnMeta = meta.addEnchant(Enchantment.DURABILITY, 1, true);
         }
 
         // 4b. Multiple enchantments (from enchantments map)
@@ -241,12 +244,22 @@ public class ItemCompiler {
             }
         }
 
+        // Hide enchant tooltip when glow is requested.
+        if (glowRequested) {
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
         // 5. Hide flags
         if (item.isHideFlags()) {
             meta.addItemFlags(ItemFlag.values());
         }
 
         itemStack.setItemMeta(meta);
+
+        // Fallback for non-enchantable materials (Paper, Flint, Skull, etc.)
+        if (glowRequested && !glowAppliedOnMeta && !isHeadItem) {
+            itemStack.addUnsafeEnchantment(Enchantment.DURABILITY, 1);
+        }
 
         // 6. Apply NBT tags
         if (!item.getNbtTags().isEmpty()) {
