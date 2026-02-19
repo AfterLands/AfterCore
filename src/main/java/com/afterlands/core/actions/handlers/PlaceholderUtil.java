@@ -7,8 +7,12 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Utilitário para processar PlaceholderAPI de forma segura.
  *
- * <p>Graceful degradation: se PAPI não estiver disponível, retorna texto literal.</p>
- * <p>Thread safety: SEMPRE deve ser chamado na main thread.</p>
+ * <p>
+ * Graceful degradation: se PAPI não estiver disponível, retorna texto literal.
+ * </p>
+ * <p>
+ * Thread safety: SEMPRE deve ser chamado na main thread.
+ * </p>
  */
 final class PlaceholderUtil {
 
@@ -21,10 +25,21 @@ final class PlaceholderUtil {
     /**
      * Processa placeholders se PAPI estiver disponível.
      *
-     * <p><b>CRITICAL:</b> Deve ser chamado APENAS na main thread!</p>
+     * <p>
+     * <b>CRITICAL:</b> Deve ser chamado APENAS na main thread!
+     * </p>
      */
     @NotNull
     static String process(@NotNull Player player, @NotNull String text) {
+        // Pre-process legacy {player} placeholder (used by older ABA animations)
+        if (text.contains("{player}")) {
+            text = text.replace("{player}", player.getName());
+        }
+
+        if (text.contains("%player%")) {
+            text = text.replace("%player%", player.getName());
+        }
+
         if (!PAPI_AVAILABLE) {
             return text; // Sem PAPI, retorna literal
         }

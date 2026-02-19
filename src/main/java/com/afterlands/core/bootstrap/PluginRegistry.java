@@ -265,7 +265,14 @@ public class PluginRegistry {
 
         actions.registerHandler("title", new TitleHandler());
         actions.registerHandler("teleport", new TeleportHandler());
-        actions.registerHandler("potion", new PotionHandler());
+
+        PotionHandler potionHandler = new PotionHandler();
+        actions.registerHandler("potion", potionHandler);
+        actions.registerHandler("effect", potionHandler);
+
+        HealthHandler healthHandler = new HealthHandler();
+        actions.registerHandler("health", healthHandler);
+        actions.registerHandler("set_health", healthHandler);
 
         ConsoleCommandHandler consoleHandler = new ConsoleCommandHandler();
         actions.registerHandler("console", consoleHandler);
