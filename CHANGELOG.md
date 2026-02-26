@@ -5,6 +5,105 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-02-23 (InputService)
+
+### Added
+
+#### InputService — 13° Serviço do AfterCore
+
+Novo serviço centralizado de captura de input do jogador, eliminando reimplementações inconsistentes nos plugins do ecossistema. Suporta três mecanismos de entrada:
+
+- **CHAT** — captura texto digitado no chat via `AsyncPlayerChatEvent`
+- **SIGN** — captura texto de uma placa virtual (requer ProtocolLib)
+- **ANVIL** — captura texto renomeado em uma bigorna (NMS reflection)
+
+**API Pública:**
+```java
+AfterCoreAPI core = AfterCore.get();
+
+core.input().requestInput(player, InputRequest.chat()
+    .prompt("&eDigite o nome do item:")
+    .timeout(600)
+    .cancelKeyword("cancelar")
+    .validator(input -> input.length() > 32 ? "&cMáximo 32 chars" : null)
+    .build()
+).thenAccept(result -> {
+    if (result.isSuccess()) {
+        item.setName(result.value());
+    }
+});
+```
+
+**Actions YAML (`chat_input`, `sign_input`, `anvil_input`):**
+```yaml
+on_left_click:
+  - "close"
+  - "chat_input prompt=&eDigite o valor: timeout=600 cancel=cancelar"
+```
+
+**Novos arquivos criados (`com.afterlands.core.input`):**
+- `InputService` — interface pública
+- `InputType` — enum `CHAT`, `SIGN`, `ANVIL`
+- `InputRequest` — builder fluente com factory methods
+- `InputResult` — wrapper imutável com enum `Status`
+- `InputValidator` — `@FunctionalInterface` de validação
+- `impl/DefaultInputService` — `ConcurrentHashMap` de sessões, timeouts via `BukkitTask`
+- `impl/ActiveInputSession` — sessão interna com `AtomicInteger` para retries
+- `impl/ChatInputHandler` — `AsyncPlayerChatEvent` LOWEST priority
+- `impl/AnvilInputHandler` — NMS reflection (`ContainerAnvil`, `checkReachable=false`)
+- `impl/SignInputHandler` — ProtocolLib `OPEN_SIGN_ENTITY` + `Client.UPDATE_SIGN`
+- `action/ChatInputActionHandler` — action `chat_input`
+- `action/SignInputActionHandler` — action `sign_input`
+- `action/AnvilInputActionHandler` — action `anvil_input`
+
+**Comportamentos garantidos:**
+- 1 sessão por player — novo `requestInput` cancela a anterior silenciosamente
+- Timeout automático via `BukkitTask` cancelável
+- `PlayerQuitEvent` completa o future com `DISCONNECTED`
+- `shutdown()` cancela todas as sessões ativas
+- Sign sem ProtocolLib retorna `InputResult.unavailable(SIGN)` imediatamente
+- Anvil fechado sem clicar no resultado trata como cancelamento
+- Retries configuráveis com validator por tentativa
+
+**`config.yml` — nova seção:**
+```yaml
+input:
+  default-timeout: 600
+  cancel-keyword: "cancelar"
+  max-retries: 3
+```
+
+**`messages.yml` — nova seção:** `input.chat`, `input.sign`, `input.anvil`
+
+### Changed
+
+- `AfterCoreAPI` — novo método `InputService input()`
+- `AfterCorePlugin` — delegate `input()` → `registry.getInputService()`
+- `PluginRegistry` — inicialização do `InputService` após `InventoryService`, shutdown antes do scheduler, `registerInputActionHandlers()` registra os 3 action handlers
+- `pom.xml` — versão bumped `1.5.9` → `1.6.0`
+
+---
+
+## [1.5.9] - 2026-02-20 (Inventory Click Handler Merge Fix)
+
+### Fixed
+- **Programmatic click handlers lost when using YAML templates**:
+  - Fixed critical bug where handlers added via `.onLeftClick(handler)`, `.onRightClick(handler)`, etc. were silently discarded when the item was built from a YAML template.
+  - Root cause: `GuiItem.Builder.build()` only used `clickHandlersBuilder` if `clickHandlers` was null, but YAML templates pre-populated `clickHandlers`, preventing merge.
+  - Solution: Modified `ensureClickHandlersBuilder()` to initialize builder from existing `clickHandlers` (if present) via new `ClickHandlers.toBuilder()` method.
+  - Now YAML actions and programmatic handlers coexist correctly - YAML provides base, programmatic handlers add/override per click type.
+
+### Added
+- **ClickHandlers.toBuilder()**:
+  - New method creates a `ClickHandlers.Builder` pre-populated with existing actions and handlers.
+  - Enables safe merging of YAML-based and programmatic click configuration.
+  - Used internally by `GuiItem.Builder` to preserve both sources when building items.
+
+### Impact
+- All plugins using `.onLeftClick()` etc. with YAML templates now work correctly.
+- Fixes inventory menus showing `hasHandlers=false` in debug logs despite programmatic handlers being added.
+- No breaking changes - existing code works as before, but now also handles the mixed YAML+programmatic case.
+
 ## [1.5.7] - 2026-02-17 (RPS Inventory State Update & Skull Integrity)
 
 ### Fixed

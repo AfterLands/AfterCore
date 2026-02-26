@@ -30,6 +30,11 @@ import com.afterlands.core.diagnostics.impl.DefaultDiagnosticsService;
 import com.afterlands.core.holograms.DefaultHologramService;
 import com.afterlands.core.holograms.HologramService;
 import com.afterlands.core.holograms.NoOpHologramService;
+import com.afterlands.core.input.InputService;
+import com.afterlands.core.input.action.AnvilInputActionHandler;
+import com.afterlands.core.input.action.ChatInputActionHandler;
+import com.afterlands.core.input.action.SignInputActionHandler;
+import com.afterlands.core.input.impl.DefaultInputService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.inventory.config.InventoryConfigManager;
 import com.afterlands.core.inventory.impl.DefaultInventoryService;
@@ -70,6 +75,7 @@ public class PluginRegistry {
     private DiagnosticsService diagnostics;
     private MetricsService metrics;
     private InventoryService inventory;
+    private InputService inputService;
     private HologramService holograms;
 
     private final java.util.Map<org.bukkit.plugin.Plugin, MessageService> pluginMessageServices = new java.util.HashMap<>();
@@ -174,7 +180,11 @@ public class PluginRegistry {
         this.inventory = new DefaultInventoryService(plugin, scheduler, sql, actions, actionExecutor, conditions,
                 messages, invConfigManager);
 
-        // 9. Holograms (optional - checks if DecentHolograms is installed)
+        // 9. InputService (13th service — chat/sign/anvil input capture)
+        this.inputService = new DefaultInputService(plugin, scheduler, debug);
+        registerInputActionHandlers(debug);
+
+        // 10. Holograms (optional - checks if DecentHolograms is installed)
         if (Bukkit.getPluginManager().getPlugin("DecentHolograms") != null) {
             this.holograms = new DefaultHologramService(plugin, logger, debug);
             logger.info("DecentHolograms detected - HologramService enabled");
@@ -185,6 +195,12 @@ public class PluginRegistry {
     }
 
     public void shutdown() {
+        if (inputService != null) {
+            try {
+                ((DefaultInputService) inputService).shutdown();
+            } catch (Throwable ignored) {
+            }
+        }
         if (holograms != null && holograms instanceof DefaultHologramService) {
             try {
                 ((DefaultHologramService) holograms).shutdown();
@@ -248,6 +264,20 @@ public class PluginRegistry {
                 CreateInventoryStatesMigration.getMigrationId(),
                 new CreateInventoryStatesMigration());
         logger.info("Registered 1 database migration(s)");
+    }
+
+    private void registerInputActionHandlers(boolean debug) {
+        ChatInputActionHandler chatHandler  = new ChatInputActionHandler(inputService);
+        SignInputActionHandler signHandler   = new SignInputActionHandler(inputService);
+        AnvilInputActionHandler anvilHandler = new AnvilInputActionHandler(inputService);
+
+        actions.registerHandler("chat_input",  chatHandler);
+        actions.registerHandler("sign_input",  signHandler);
+        actions.registerHandler("anvil_input", anvilHandler);
+
+        if (debug) {
+            logger.info("[InputService] Registered 3 input action handlers");
+        }
     }
 
     private void registerDefaultActionHandlers(boolean debug) {
@@ -353,6 +383,10 @@ public class PluginRegistry {
 
     public InventoryService getInventory() {
         return inventory;
+    }
+
+    public InputService getInputService() {
+        return inputService;
     }
 
     public HologramService getHolograms() {

@@ -75,3 +75,11 @@ commands:
     # Número de subcomandos exibidos por página no help
     page-size: 7
     show-group-subcount: false
+
+input:
+  # Ticks até o input expirar (20 ticks = 1 segundo). 0 = sem timeout.
+  default-timeout: 600
+  # Palavra-chave para cancelar input (case-insensitive).
+  cancel-keyword: "cancelar"
+  # Número máximo de tentativas de validação antes de cancelar.
+  max-retries: 3

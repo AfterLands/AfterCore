@@ -11,6 +11,7 @@ import com.afterlands.core.database.SqlDataSource;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.holograms.HologramService;
+import com.afterlands.core.input.InputService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.protocol.ProtocolService;
@@ -103,6 +104,15 @@ public interface AfterCoreAPI {
 
     @NotNull
     InventoryService inventory();
+
+    /**
+     * Serviço de captura de input do jogador (chat, placa, bigorna).
+     *
+     * @return InputService para solicitar input de jogadores
+     * @since 1.6.0
+     */
+    @NotNull
+    InputService input();
 
     /**
      * Serviço para criar e gerenciar hologramas.

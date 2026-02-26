@@ -13,6 +13,7 @@ import com.afterlands.core.config.MessageService;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.holograms.HologramService;
+import com.afterlands.core.input.InputService;
 import com.afterlands.core.inventory.InventoryService;
 import com.afterlands.core.metrics.MetricsService;
 import com.afterlands.core.protocol.ProtocolService;
@@ -117,6 +118,12 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
     @NotNull
     public InventoryService inventory() {
         return lifecycle.getRegistry().getInventory();
+    }
+
+    @Override
+    @NotNull
+    public InputService input() {
+        return lifecycle.getRegistry().getInputService();
     }
 
     @Override

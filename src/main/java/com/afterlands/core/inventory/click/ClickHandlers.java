@@ -94,6 +94,22 @@ public class ClickHandlers {
     }
 
     /**
+     * Cria builder pré-preenchido com os dados deste ClickHandlers.
+     * Útil para adicionar handlers programáticos a um ClickHandlers existente (ex: YAML).
+     *
+     * @return Builder com dados existentes
+     */
+    @NotNull
+    public Builder toBuilder() {
+        Builder b = new Builder();
+        b.actionsByType.putAll(this.actionsByType);
+        b.handlersByType.putAll(this.handlersByType);
+        b.defaultActions = this.defaultActions;
+        b.defaultHandler = this.defaultHandler;
+        return b;
+    }
+
+    /**
      * Cria ClickHandlers com apenas actions default (compatibilidade).
      *
      * @param actions Lista de actions padrão

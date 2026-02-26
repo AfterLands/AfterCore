@@ -17,6 +17,7 @@
     *   [MetricsService](MetricsService)
     *   [ProtocolService](ProtocolService)
     *   [SchedulerService](SchedulerService)
+    *   [InputService](InputService)
     *   [SqlService](SqlService)
 *   **Advanced**
     *   [Threading and Performance](Threading-and-Performance)

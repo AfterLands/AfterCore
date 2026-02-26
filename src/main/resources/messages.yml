@@ -41,6 +41,22 @@ commands:
       next-page: " &7[Próxima ⇨]"
       next-hover: "&7► Clique para página {page}"
 
+input:
+  chat:
+    prompt: "&7Digite no chat. Use &f{cancel_keyword} &7para cancelar."
+    cancelled: "&cEntrada cancelada."
+    timed-out: "&cTempo esgotado."
+    validation-failed: "&cEntrada inválida: &f{error}"
+  sign:
+    unavailable: "&cEntrada por placa indisponível (ProtocolLib necessário)."
+    cancelled: "&cEntrada cancelada."
+    timed-out: "&cTempo esgotado."
+  anvil:
+    prompt-item-name: "Digite aqui"
+    cancelled: "&cEntrada cancelada."
+    timed-out: "&cTempo esgotado."
+  max-retries-exceeded: "&cNúmero máximo de tentativas excedido."
+
 # Language system messages (namespace: aftercore)
 language:
   invalid: "&c✖ Idioma inválido: &f{language}&c. Disponíveis: &f{available}"

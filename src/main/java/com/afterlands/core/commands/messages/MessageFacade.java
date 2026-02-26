@@ -65,6 +65,28 @@ public final class MessageFacade {
     // Plugin -> their messages config
     private final Map<String, FileConfiguration> pluginMessages = new ConcurrentHashMap<>();
 
+    private boolean isMissing(String result, MessageKey key) {
+        if (result == null || result.isEmpty())
+            return true;
+
+        // Strip colors to compare literals
+        String stripped = ChatColor.stripColor(result);
+
+        // Check for common missing patterns from both AfterCore and AfterLanguage
+        if (stripped.contains("[Missing: " + key.fullKey() + "]"))
+            return true;
+        if (stripped.contains("[Missing: " + key.path() + "]"))
+            return true;
+
+        // Check for raw keys (common fallback in translation engines)
+        if (stripped.equals(key.fullKey()))
+            return true;
+        if (stripped.equals(key.path()))
+            return true;
+
+        return false;
+    }
+
     // Default messages for when nothing is configured
     private static final Map<String, String> DEFAULTS = Map.ofEntries(
             Map.entry("errors.no-permission", "&cYou don't have permission to do this."),
@@ -338,8 +360,12 @@ public final class MessageFacade {
                 for (int i = 0; i < placeholders.length - 1; i += 2) {
                     phs.add(Placeholder.of(String.valueOf(placeholders[i]), placeholders[i + 1]));
                 }
-                return MessageFacade.this.coreMessages.get(player, MessageKey.of(pluginName, path),
+                String result = MessageFacade.this.coreMessages.get(player, MessageKey.of(pluginName, path),
                         phs.toArray(new Placeholder[0]));
+
+                if (!isMissing(result, MessageKey.of(pluginName, path))) {
+                    return result;
+                }
             }
 
             String message = resolve(pluginName, path);
@@ -361,9 +387,13 @@ public final class MessageFacade {
         public void send(@NotNull CommandSender sender, @NotNull String path) {
             if (sender instanceof Player player
                     && org.bukkit.Bukkit.getPluginManager().isPluginEnabled("AfterLanguage")) {
-                MessageFacade.this.coreMessages.send(player,
-                        MessageKey.of(pluginName, path));
-                return;
+                MessageKey key = MessageKey.of(pluginName, path);
+                String result = MessageFacade.this.coreMessages.get(player, key);
+
+                if (!isMissing(result, key)) {
+                    MessageFacade.this.coreMessages.send(player, key);
+                    return;
+                }
             }
 
             String message = resolve(pluginName, path);
@@ -380,10 +410,14 @@ public final class MessageFacade {
                     phList.add(Placeholder.of(String.valueOf(placeholders[i]),
                             placeholders[i + 1]));
                 }
-                MessageFacade.this.coreMessages.send(player,
-                        MessageKey.of(pluginName, path),
-                        phList.toArray(new Placeholder[0]));
-                return;
+
+                MessageKey key = MessageKey.of(pluginName, path);
+                String result = MessageFacade.this.coreMessages.get(player, key, phList.toArray(new Placeholder[0]));
+
+                if (!isMissing(result, key)) {
+                    MessageFacade.this.coreMessages.send(player, key, phList.toArray(new Placeholder[0]));
+                    return;
+                }
             }
 
             if (placeholders.length % 2 != 0) {

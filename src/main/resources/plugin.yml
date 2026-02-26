@@ -1,6 +1,6 @@
 name: AfterCore
 main: com.afterlands.core.AfterCorePlugin
-version: 1.5.3
+version: ${project.version}
 build-date: '${maven.build.timestamp}'
 author: AfterLands
 description: AfterLands - Core Library Plugin

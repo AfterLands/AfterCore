@@ -635,10 +635,19 @@ public class GuiItem {
 
         /**
          * Garante que o clickHandlersBuilder está inicializado.
+         * Se já existe um ClickHandlers pré-construído (ex: do YAML), usa-o como base
+         * para que handlers programáticos sejam mesclados com os existentes.
          */
         private void ensureClickHandlersBuilder() {
             if (clickHandlersBuilder == null) {
-                clickHandlersBuilder = ClickHandlers.builder();
+                if (clickHandlers != null) {
+                    // Inicializar builder a partir do ClickHandlers existente (YAML)
+                    // para que handlers programáticos sejam adicionados sobre ele
+                    clickHandlersBuilder = clickHandlers.toBuilder();
+                    clickHandlers = null; // Será reconstruído no build()
+                } else {
+                    clickHandlersBuilder = ClickHandlers.builder();
+                }
             }
         }
 
