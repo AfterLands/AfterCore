@@ -9,6 +9,8 @@ import com.afterlands.core.config.ConfigService;
 import com.afterlands.core.config.MessageService;
 import com.afterlands.core.database.SqlDataSource;
 import com.afterlands.core.database.SqlService;
+import com.afterlands.core.redis.RedisDataSource;
+import com.afterlands.core.redis.RedisService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.holograms.HologramService;
 import com.afterlands.core.input.InputService;
@@ -127,6 +129,35 @@ public interface AfterCoreAPI {
      */
     @NotNull
     HologramService holograms();
+
+    /**
+     * Serviço de Redis (cache distribuído, pub/sub, locks).
+     *
+     * <p>
+     * Se Redis não estiver habilitado, retorna uma implementação no-op.
+     * </p>
+     *
+     * @return RedisService para operações Redis
+     * @since 1.8.0
+     */
+    @NotNull
+    RedisService redis();
+
+    /**
+     * Atalho para obter um Redis datasource específico.
+     *
+     * <p>
+     * Equivalente a {@code redis().datasource(name)}.
+     * </p>
+     *
+     * @param name nome do datasource (ex: "default", "cache")
+     * @return RedisDataSource para o nome especificado
+     * @throws IllegalStateException se o datasource não existir
+     * @since 1.8.0
+     */
+    default @NotNull RedisDataSource redis(@NotNull String name) {
+        return redis().datasource(name);
+    }
 
     /**
      * Executa uma action em um player.

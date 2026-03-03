@@ -45,7 +45,7 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
     private final MetricsService metrics;
 
     private static final List<String> SUBCOMMANDS = Arrays.asList(
-            "status", "db", "threads", "system", "metrics", "memory", "all");
+            "status", "db", "redis", "threads", "system", "metrics", "memory", "all");
 
     public ACoreCommand(@NotNull Plugin plugin,
             @NotNull DiagnosticsService diagnostics,
@@ -77,6 +77,7 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
         switch (subcommand) {
             case "status" -> showStatus(sender);
             case "db" -> showDatabase(sender);
+            case "redis" -> showRedis(sender);
             case "threads" -> showThreads(sender);
             case "system" -> showSystem(sender);
             case "metrics" -> showMetrics(sender);
@@ -116,6 +117,7 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.GOLD + "=== AfterCore Diagnostics ===");
         sender.sendMessage(ChatColor.YELLOW + "/acore status " + ChatColor.GRAY + "- Dependências e versões");
         sender.sendMessage(ChatColor.YELLOW + "/acore db " + ChatColor.GRAY + "- Database info e ping");
+        sender.sendMessage(ChatColor.YELLOW + "/acore redis " + ChatColor.GRAY + "- Redis info e ping");
         sender.sendMessage(ChatColor.YELLOW + "/acore threads " + ChatColor.GRAY + "- Thread pool info");
         sender.sendMessage(ChatColor.YELLOW + "/acore system " + ChatColor.GRAY + "- System info (JVM, OS)");
         sender.sendMessage(ChatColor.YELLOW + "/acore metrics " + ChatColor.GRAY + "- Performance metrics");
@@ -145,6 +147,13 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
                 ? (db.initialized() ? ChatColor.GREEN + "✓ Habilitado" : ChatColor.RED + "✗ Erro: " + db.lastError())
                 : ChatColor.GRAY + "Desabilitado";
         sender.sendMessage(ChatColor.YELLOW + "Database: " + dbStatus);
+
+        // Redis status resumido
+        DiagnosticsSnapshot.RedisInfo redis = snapshot.redisInfo();
+        String redisStatus = redis.enabled()
+                ? (redis.initialized() ? ChatColor.GREEN + "✓ " + redis.topology() : ChatColor.RED + "✗ Erro")
+                : ChatColor.GRAY + "Desabilitado";
+        sender.sendMessage(ChatColor.YELLOW + "Redis: " + redisStatus);
     }
 
     private void showDatabase(@NotNull CommandSender sender) {
@@ -186,6 +195,46 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
                     if (pingMs >= 0) {
                         String color = pingMs < 10 ? ChatColor.GREEN.toString()
                                 : pingMs < 50 ? ChatColor.YELLOW.toString()
+                                        : ChatColor.RED.toString();
+                        sender.sendMessage(ChatColor.YELLOW + "Ping: " + color + pingMs + "ms");
+                    } else {
+                        sender.sendMessage(ChatColor.RED + "Ping: FAILED");
+                    }
+                });
+            });
+        }
+    }
+
+    private void showRedis(@NotNull CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "=== Redis ===");
+
+        DiagnosticsSnapshot snapshot = diagnostics.captureSnapshot();
+        DiagnosticsSnapshot.RedisInfo redis = snapshot.redisInfo();
+
+        sender.sendMessage(ChatColor.YELLOW + "Enabled: " + ChatColor.WHITE + redis.enabled());
+        sender.sendMessage(ChatColor.YELLOW + "Initialized: " + ChatColor.WHITE + redis.initialized());
+
+        if (redis.topology() != null) {
+            sender.sendMessage(ChatColor.YELLOW + "Topology: " + ChatColor.WHITE + redis.topology());
+        }
+
+        if (redis.poolStats() != null) {
+            DiagnosticsSnapshot.RedisPoolStats stats = redis.poolStats();
+            sender.sendMessage(ChatColor.YELLOW + "Pool Stats:");
+            sender.sendMessage("  " + ChatColor.GRAY + "Active: " + ChatColor.WHITE + stats.active());
+            sender.sendMessage("  " + ChatColor.GRAY + "Idle: " + ChatColor.WHITE + stats.idle());
+            sender.sendMessage("  " + ChatColor.GRAY + "Waiters: " + ChatColor.WHITE + stats.waiters());
+            sender.sendMessage("  " + ChatColor.GRAY + "Max Total: " + ChatColor.WHITE + stats.maxTotal());
+        }
+
+        if (redis.enabled() && redis.initialized()) {
+            sender.sendMessage(ChatColor.YELLOW + "Testando conexão...");
+            scheduler.ioExecutor().execute(() -> {
+                long pingMs = diagnostics.pingRedis();
+                scheduler.runSync(() -> {
+                    if (pingMs >= 0) {
+                        String color = pingMs < 5 ? ChatColor.GREEN.toString()
+                                : pingMs < 20 ? ChatColor.YELLOW.toString()
                                         : ChatColor.RED.toString();
                         sender.sendMessage(ChatColor.YELLOW + "Ping: " + color + pingMs + "ms");
                     } else {
@@ -317,6 +366,8 @@ public final class ACoreCommand implements CommandExecutor, TabCompleter {
         showStatus(sender);
         sender.sendMessage("");
         showDatabase(sender);
+        sender.sendMessage("");
+        showRedis(sender);
         sender.sendMessage("");
         showThreads(sender);
         sender.sendMessage("");

@@ -1,6 +1,7 @@
 package com.afterlands.core.config;
 
 import com.afterlands.core.config.update.ConfigUpdater;
+import com.afterlands.core.config.update.MergeOptions;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -48,4 +49,27 @@ public interface ConfigService {
      */
     boolean update(@NotNull Plugin plugin, @NotNull String resourceName,
             @NotNull Consumer<ConfigUpdater> options);
+
+    /**
+     * Atualiza um arquivo com opções de merge (seções user-owned).
+     *
+     * @param plugin       Plugin dono do arquivo
+     * @param resourceName Nome do arquivo (ex: inventories.yml)
+     * @param mergeOptions Opções de merge (seções user-owned)
+     * @return true se o arquivo foi atualizado
+     */
+    boolean update(@NotNull Plugin plugin, @NotNull String resourceName,
+            @NotNull MergeOptions mergeOptions);
+
+    /**
+     * Atualiza um arquivo com opções de merge e opções personalizadas.
+     *
+     * @param plugin       Plugin dono do arquivo
+     * @param resourceName Nome do arquivo
+     * @param mergeOptions Opções de merge (seções user-owned)
+     * @param options      Configurador para registrar migrations, etc.
+     * @return true se o arquivo foi atualizado
+     */
+    boolean update(@NotNull Plugin plugin, @NotNull String resourceName,
+            @NotNull MergeOptions mergeOptions, @NotNull Consumer<ConfigUpdater> options);
 }

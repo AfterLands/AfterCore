@@ -25,6 +25,9 @@ import com.afterlands.core.config.validate.ConfigValidator;
 import com.afterlands.core.config.validate.ValidationResult;
 import com.afterlands.core.database.SqlService;
 import com.afterlands.core.database.impl.HikariSqlService;
+import com.afterlands.core.redis.NoOpRedisService;
+import com.afterlands.core.redis.RedisService;
+import com.afterlands.core.redis.impl.JedisRedisService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.diagnostics.impl.DefaultDiagnosticsService;
 import com.afterlands.core.holograms.DefaultHologramService;
@@ -76,6 +79,7 @@ public class PluginRegistry {
     private MetricsService metrics;
     private InventoryService inventory;
     private InputService inputService;
+    private RedisService redis;
     private HologramService holograms;
 
     private final java.util.Map<org.bukkit.plugin.Plugin, MessageService> pluginMessageServices = new java.util.HashMap<>();
@@ -152,6 +156,18 @@ public class PluginRegistry {
         registerMigrations();
         this.sql.reloadFromConfig(plugin.getConfig().getConfigurationSection("database"));
 
+        // 3.5. Redis (optional)
+        org.bukkit.configuration.ConfigurationSection redisSection = plugin.getConfig().getConfigurationSection("redis");
+        boolean redisEnabled = redisSection != null && redisSection.getBoolean("enabled", false);
+        if (redisEnabled) {
+            this.redis = new JedisRedisService(plugin, scheduler, debug);
+            ((JedisRedisService) this.redis).reloadFromConfig(redisSection);
+            logger.info("RedisService enabled with " + redis.getDatasourceNames().size() + " datasource(s)");
+        } else {
+            this.redis = new NoOpRedisService(logger);
+            logger.info("RedisService disabled (redis.enabled=false)");
+        }
+
         // 4. Logic Services
         this.conditions = new DefaultConditionService(plugin, scheduler, debug);
         this.actions = new DefaultActionService(conditions, debug);
@@ -163,7 +179,7 @@ public class PluginRegistry {
         this.metrics = new DefaultMetricsService();
         int ioThreads = plugin.getConfig().getInt("concurrency.io-threads", 8);
         int cpuThreads = plugin.getConfig().getInt("concurrency.cpu-threads", 4);
-        this.diagnostics = new DefaultDiagnosticsService(plugin, sql, ioThreads, cpuThreads);
+        this.diagnostics = new DefaultDiagnosticsService(plugin, sql, redis, ioThreads, cpuThreads);
 
         // 6. Commands (depends on config, messages, scheduler, metrics)
         this.commands = new DefaultCommandService(plugin, config, messages, scheduler, metrics, debug);
@@ -222,6 +238,12 @@ public class PluginRegistry {
         if (inventory != null && inventory instanceof DefaultInventoryService) {
             try {
                 ((DefaultInventoryService) inventory).shutdown();
+            } catch (Throwable ignored) {
+            }
+        }
+        if (redis != null) {
+            try {
+                redis.close();
             } catch (Throwable ignored) {
             }
         }
@@ -387,6 +409,10 @@ public class PluginRegistry {
 
     public InputService getInputService() {
         return inputService;
+    }
+
+    public RedisService getRedis() {
+        return redis;
     }
 
     public HologramService getHolograms() {

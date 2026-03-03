@@ -1,6 +1,7 @@
 package com.afterlands.core.config.impl;
 
 import com.afterlands.core.config.ConfigService;
+import com.afterlands.core.config.update.MergeOptions;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -59,12 +60,29 @@ public final class DefaultConfigService implements ConfigService {
 
     @Override
     public boolean update(@NotNull Plugin targetPlugin, @NotNull String resourceName) {
-        return update(targetPlugin, resourceName, null);
+        return doUpdate(targetPlugin, resourceName, MergeOptions.none(), null);
     }
 
     @Override
     public boolean update(@NotNull Plugin targetPlugin, @NotNull String resourceName,
             @Nullable Consumer<ConfigUpdater> options) {
+        return doUpdate(targetPlugin, resourceName, MergeOptions.none(), options);
+    }
+
+    @Override
+    public boolean update(@NotNull Plugin targetPlugin, @NotNull String resourceName,
+            @NotNull MergeOptions mergeOptions) {
+        return doUpdate(targetPlugin, resourceName, mergeOptions, null);
+    }
+
+    @Override
+    public boolean update(@NotNull Plugin targetPlugin, @NotNull String resourceName,
+            @NotNull MergeOptions mergeOptions, @NotNull Consumer<ConfigUpdater> options) {
+        return doUpdate(targetPlugin, resourceName, mergeOptions, options);
+    }
+
+    private boolean doUpdate(@NotNull Plugin targetPlugin, @NotNull String resourceName,
+            @NotNull MergeOptions mergeOptions, @Nullable Consumer<ConfigUpdater> options) {
 
         // Validação básica
         InputStream defaultStream = targetPlugin.getResource(resourceName);
@@ -89,6 +107,7 @@ public final class DefaultConfigService implements ConfigService {
 
         ConfigUpdater updater = new ConfigUpdater(
                 targetPlugin.getLogger(), configFile);
+        updater.setMergeOptions(mergeOptions);
 
         return updater.update(currentConfig, mergeStream, defaultConfig, options);
     }

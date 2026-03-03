@@ -11,6 +11,7 @@ import com.afterlands.core.conditions.ConditionService;
 import com.afterlands.core.config.ConfigService;
 import com.afterlands.core.config.MessageService;
 import com.afterlands.core.database.SqlService;
+import com.afterlands.core.redis.RedisService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.holograms.HologramService;
 import com.afterlands.core.input.InputService;
@@ -130,6 +131,12 @@ public final class AfterCorePlugin extends JavaPlugin implements AfterCoreAPI {
     @NotNull
     public HologramService holograms() {
         return lifecycle.getRegistry().getHolograms();
+    }
+
+    @Override
+    @NotNull
+    public RedisService redis() {
+        return lifecycle.getRegistry().getRedis();
     }
 
     @Override

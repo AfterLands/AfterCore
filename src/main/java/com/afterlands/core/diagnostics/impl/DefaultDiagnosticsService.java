@@ -4,6 +4,7 @@ import com.afterlands.core.database.SqlService;
 import com.afterlands.core.diagnostics.DiagnosticsService;
 import com.afterlands.core.diagnostics.DiagnosticsSnapshot;
 import com.afterlands.core.diagnostics.DiagnosticsSnapshot.*;
+import com.afterlands.core.redis.RedisService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -20,15 +21,18 @@ public final class DefaultDiagnosticsService implements DiagnosticsService {
 
     private final Plugin plugin;
     private final SqlService sqlService;
+    private final RedisService redisService;
     private final int ioThreads;
     private final int cpuThreads;
 
     public DefaultDiagnosticsService(@NotNull Plugin plugin,
                                     @NotNull SqlService sqlService,
+                                    @NotNull RedisService redisService,
                                     int ioThreads,
                                     int cpuThreads) {
         this.plugin = plugin;
         this.sqlService = sqlService;
+        this.redisService = redisService;
         this.ioThreads = ioThreads;
         this.cpuThreads = cpuThreads;
     }
@@ -40,6 +44,7 @@ public final class DefaultDiagnosticsService implements DiagnosticsService {
                 Instant.now(),
                 detectDependencies(),
                 captureDatabaseInfo(),
+                captureRedisInfo(),
                 captureThreadPoolInfo(),
                 SystemInfo.capture()
         );
@@ -62,6 +67,51 @@ public final class DefaultDiagnosticsService implements DiagnosticsService {
         } catch (Exception e) {
             plugin.getLogger().warning("Database ping failed: " + e.getMessage());
             return -1;
+        }
+    }
+
+    @Override
+    public long pingRedis() {
+        if (!redisService.isEnabled() || !redisService.isInitialized()) {
+            return -1;
+        }
+
+        try {
+            long start = System.nanoTime();
+            Boolean available = redisService.isAvailable().get(5, java.util.concurrent.TimeUnit.SECONDS);
+            long elapsed = System.nanoTime() - start;
+            return Boolean.TRUE.equals(available) ? elapsed / 1_000_000 : -1;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Redis ping failed: " + e.getMessage());
+            return -1;
+        }
+    }
+
+    private RedisInfo captureRedisInfo() {
+        if (!redisService.isEnabled()) {
+            return RedisInfo.disabled();
+        }
+
+        if (!redisService.isInitialized()) {
+            return RedisInfo.error("unknown");
+        }
+
+        try {
+            Map<String, Object> stats = redisService.getPoolStats();
+            RedisPoolStats poolStats = null;
+            if (!stats.isEmpty()) {
+                poolStats = new RedisPoolStats(
+                        ((Number) stats.getOrDefault("active", 0)).intValue(),
+                        ((Number) stats.getOrDefault("idle", 0)).intValue(),
+                        ((Number) stats.getOrDefault("waiters", 0)).intValue(),
+                        ((Number) stats.getOrDefault("max_total", 0)).intValue()
+                );
+            }
+
+            String topology = String.valueOf(stats.getOrDefault("topology", "unknown"));
+            return RedisInfo.healthy(topology, -1, poolStats);
+        } catch (Exception e) {
+            return RedisInfo.error("unknown");
         }
     }
 

@@ -7,13 +7,11 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 /**
  * Atualiza arquivos YAML preservando valores do usuário e comentários.
@@ -27,6 +25,13 @@ import java.util.stream.Collectors;
  * (Smart Merge).</li>
  * </ul>
  * </p>
+ *
+ * <p>
+ * Usa {@link CommentAwareWriter} para reconstruir o arquivo inteiro,
+ * preservando comentários do default e valores do usuário.
+ * Seções marcadas como "user-owned" via {@link MergeOptions} não são
+ * mergeadas do default.
+ * </p>
  */
 public final class ConfigUpdater {
 
@@ -34,6 +39,7 @@ public final class ConfigUpdater {
     private final File configFile;
     private final ConfigBackupManager backupManager;
     private final Map<Integer, ConfigMigration> migrations = new HashMap<>();
+    private MergeOptions mergeOptions = MergeOptions.none();
 
     public ConfigUpdater(@NotNull Logger logger, @NotNull File configFile) {
         this.logger = logger;
@@ -46,6 +52,13 @@ public final class ConfigUpdater {
      */
     public void registerMigration(int version, ConfigMigration migration) {
         migrations.put(version, migration);
+    }
+
+    /**
+     * Define opções de merge (seções user-owned).
+     */
+    public void setMergeOptions(@NotNull MergeOptions mergeOptions) {
+        this.mergeOptions = mergeOptions;
     }
 
     /**
@@ -83,24 +96,24 @@ public final class ConfigUpdater {
     private boolean updateVersioned(FileConfiguration userConfig, InputStream defaultStream,
             FileConfiguration defaultConfig, double targetVersion) {
         double currentVersion = userConfig.getDouble("config-version", 0.0);
-        boolean diskChanged = false;
+        boolean migrated = false;
 
         // 1. Caso crítico: Sem versão -> Assumir nova versão
         if (currentVersion == 0.0) {
             logger.info("[Config] " + configFile.getName() + " sem versão. Definindo v" + targetVersion);
             backupManager.createBackup(configFile);
-            updateVersionInFile(targetVersion);
-            diskChanged = true;
             currentVersion = targetVersion;
+            userConfig.set("config-version", targetVersion);
+            migrated = true;
         }
 
-        // 2. Migrations
+        // 2. Migrations (em memória via Bukkit API)
         if (currentVersion < targetVersion) {
-            logger.info(
-                    "[Config] Atualizando " + configFile.getName() + ": v" + currentVersion + " -> v" + targetVersion);
-            backupManager.createBackup(configFile);
+            logger.info("[Config] Atualizando " + configFile.getName() + ": v" + currentVersion + " -> v" + targetVersion);
+            if (!migrated) {
+                backupManager.createBackup(configFile);
+            }
 
-            // Migrations continuam sendo integer-based para compatibilidade
             int currentMajor = (int) Math.floor(currentVersion);
             int targetMajor = (int) Math.floor(targetVersion);
 
@@ -109,161 +122,109 @@ public final class ConfigUpdater {
                 if (migration != null) {
                     logger.info("Aplicando migration v" + version);
                     migration.migrate(userConfig, defaultConfig);
-                    // Migration pode modificar estrutura, precisa salvar
-                    safeSave(userConfig);
                 }
             }
-            diskChanged = true;
+
+            userConfig.set("config-version", targetVersion);
+            migrated = true;
         } else if (currentVersion > targetVersion) {
-            // Nota: Removemos o forceMigration hardcoded daqui.
-            // Para lógica customizada de legacy check, o ideal seria um callback específico
-            // no futuro,
-            // mas por enquanto, manter simples.
-            logger.warning("[Config] Versão futura detectada em " + configFile.getName() + " (" + currentVersion + " > "
-                    + targetVersion + ")");
+            logger.warning("[Config] Versão futura detectada em " + configFile.getName()
+                    + " (" + currentVersion + " > " + targetVersion + ")");
             return false;
         }
 
-        // 3. Smart Merge (ANTES de atualizar versão)
-        if (performSmartMerge(userConfig, defaultStream, defaultConfig, diskChanged)) {
-            diskChanged = true;
+        // 3. Reconstruir arquivo com CommentAwareWriter
+        boolean hasChanges = migrated || hasNewKeys(userConfig, defaultConfig);
+        if (hasChanges) {
+            return reconstructFile(userConfig, defaultStream, defaultConfig);
         }
 
-        // 4. Atualizar versão via texto (ÚLTIMA operação para preservar comentários)
-        if (currentVersion < targetVersion) {
-            updateVersionInFile(targetVersion);
-        }
-
-        return diskChanged;
+        return false;
     }
 
     private boolean updateGeneric(FileConfiguration userConfig, InputStream defaultStream,
             FileConfiguration defaultConfig) {
-        return performSmartMerge(userConfig, defaultStream, defaultConfig, false);
+        if (defaultStream == null) return false;
+
+        boolean hasChanges = hasNewKeys(userConfig, defaultConfig);
+        if (hasChanges) {
+            backupManager.createBackup(configFile);
+        }
+
+        // Sempre reconstruir para garantir comentários atualizados e keys novas
+        // Mas só se houver mudanças reais
+        if (hasChanges) {
+            return reconstructFile(userConfig, defaultStream, defaultConfig);
+        }
+
+        return false;
     }
 
-    private boolean performSmartMerge(FileConfiguration userConfig, InputStream defaultStream,
-            FileConfiguration defaultConfig, boolean forceBackup) {
-        if (defaultStream == null)
-            return false;
+    /**
+     * Reconstrói o arquivo usando CommentAwareWriter.
+     */
+    private boolean reconstructFile(FileConfiguration userConfig, InputStream defaultStream,
+            FileConfiguration defaultConfig) {
+        if (defaultStream == null) return false;
 
         try {
-            List<String> userLines = configFile.exists()
-                    ? Files.readAllLines(configFile.toPath())
-                    : Collections.emptyList();
+            List<String> defaultLines = readLines(defaultStream);
 
-            // Detectar chaves faltantes (root + nested)
-            List<String> missingRootKeys = getMissingRootKeys(userConfig, defaultConfig);
-            List<String> missingNestedKeys = getMissingNestedKeys(userConfig, defaultConfig, "");
+            YamlCommentParser.ParseResult parseResult = YamlCommentParser.parse(defaultLines);
+            CommentAwareWriter writer = new CommentAwareWriter();
+            String output = writer.write(userConfig, defaultConfig, parseResult, mergeOptions, defaultLines);
 
-            if (!missingRootKeys.isEmpty()) {
-                if (!forceBackup) {
-                    backupManager.createBackup(configFile);
-                }
+            AtomicConfigWriter.write(configFile, output);
+            return true;
+        } catch (IOException e) {
+            logger.severe("[Config] Falha ao reconstruir " + configFile.getName() + ": " + e.getMessage());
+            return false;
+        }
+    }
 
-                logger.info("[Config] Adicionando " + missingRootKeys.size() + " novas chaves raiz em "
-                        + configFile.getName());
-                String mergedContent = SmartConfigMerger.merge(userLines, defaultStream, missingRootKeys);
+    /**
+     * Verifica se o default tem keys que o user não tem (excluindo seções user-owned).
+     */
+    private boolean hasNewKeys(ConfigurationSection userConfig, ConfigurationSection defaultConfig) {
+        return hasNewKeysRecursive(userConfig, defaultConfig, "");
+    }
 
-                AtomicConfigWriter.write(configFile, mergedContent);
-                return true;
-            } else if (!missingNestedKeys.isEmpty()) {
-                // Chaves nested faltando - precisa usar API do Bukkit
-                if (!forceBackup) {
-                    backupManager.createBackup(configFile);
-                }
+    private boolean hasNewKeysRecursive(ConfigurationSection userConfig,
+            ConfigurationSection defaultConfig, String prefix) {
+        for (String key : defaultConfig.getKeys(false)) {
+            String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
 
-                logger.info("[Config] Adicionando " + missingNestedKeys.size() + " chaves nested em "
-                        + configFile.getName());
-                for (String nestedKey : missingNestedKeys) {
-                    userConfig.set(nestedKey, defaultConfig.get(nestedKey));
-                }
-                safeSave(userConfig);
+            // Pular seções user-owned
+            if (mergeOptions.isUserOwned(fullPath)) continue;
+
+            if (!userConfig.contains(key)) {
                 return true;
             }
-        } catch (IOException e) {
-            logger.severe("[Config] Falha no Smart Merge de " + configFile.getName() + ": " + e.getMessage());
+
+            Object defaultVal = defaultConfig.get(key);
+            Object userVal = userConfig.get(key);
+            if (defaultVal instanceof ConfigurationSection && userVal instanceof ConfigurationSection) {
+                if (hasNewKeysRecursive(
+                        (ConfigurationSection) userVal,
+                        (ConfigurationSection) defaultVal,
+                        fullPath)) {
+                    return true;
+                }
+            }
         }
         return false;
     }
 
-    private List<String> getMissingRootKeys(FileConfiguration userConfig, FileConfiguration defaultConfig) {
-        return defaultConfig.getKeys(false).stream()
-                .filter(key -> !userConfig.contains(key))
-                .collect(Collectors.toList());
-    }
-
-    private List<String> getMissingNestedKeys(FileConfiguration userConfig, FileConfiguration defaultConfig,
-            String prefix) {
-        List<String> missing = new ArrayList<>();
-        for (String key : defaultConfig.getKeys(false)) {
-            String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
-            if (userConfig.contains(key)) {
-                // Key existe, verificar sub-keys se for seção
-                Object defaultVal = defaultConfig.get(key);
-                Object userVal = userConfig.get(key);
-                if (defaultVal instanceof ConfigurationSection && userVal instanceof ConfigurationSection) {
-                    missing.addAll(getMissingNestedKeysInSection(
-                            (ConfigurationSection) userVal,
-                            (ConfigurationSection) defaultVal,
-                            fullPath));
-                }
+    private List<String> readLines(InputStream stream) throws IOException {
+        List<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
             }
         }
-        return missing;
-    }
-
-    private List<String> getMissingNestedKeysInSection(ConfigurationSection userSection,
-            ConfigurationSection defaultSection, String prefix) {
-        List<String> missing = new ArrayList<>();
-        for (String key : defaultSection.getKeys(false)) {
-            String fullPath = prefix + "." + key;
-            if (!userSection.contains(key)) {
-                missing.add(fullPath);
-            } else {
-                Object defaultVal = defaultSection.get(key);
-                Object userVal = userSection.get(key);
-                if (defaultVal instanceof ConfigurationSection && userVal instanceof ConfigurationSection) {
-                    missing.addAll(getMissingNestedKeysInSection(
-                            (ConfigurationSection) userVal,
-                            (ConfigurationSection) defaultVal,
-                            fullPath));
-                }
-            }
-        }
-        return missing;
-    }
-
-    private void updateVersionInFile(double newVersion) {
-        try {
-            List<String> lines = Files.readAllLines(configFile.toPath());
-            boolean found = false;
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i);
-                if (line.trim().startsWith("config-version:")) {
-                    // Preservar indentação e comentário na mesma linha se houver
-                    int colonIndex = line.indexOf(':');
-                    String prefix = line.substring(0, colonIndex + 1);
-                    lines.set(i, prefix + " " + newVersion);
-                    found = true;
-                    break;
-                }
-            }
-            if (found) {
-                AtomicConfigWriter.write(configFile, String.join(System.lineSeparator(), lines));
-            }
-        } catch (IOException e) {
-            logger.warning("[Config] Falha ao atualizar versão em " + configFile.getName() + ": " + e.getMessage());
-        }
-    }
-
-    private void safeSave(FileConfiguration config) {
-        try {
-            String data = config.saveToString();
-            AtomicConfigWriter.write(configFile, data);
-        } catch (IOException e) {
-            logger.severe("[Config] Falha crítica ao salvar " + configFile.getName() + ": " + e.getMessage());
-        }
+        return lines;
     }
 
     @FunctionalInterface

@@ -33,4 +33,14 @@ public interface DiagnosticsService {
      * @return latência em ms, ou -1 se database desabilitado/erro
      */
     long pingDatabase();
+
+    /**
+     * Testa conexão com Redis e retorna latência em ms.
+     *
+     * <p>ATENÇÃO: operação bloqueante. Deve ser executada em thread async.</p>
+     *
+     * @return latência em ms, ou -1 se Redis desabilitado/erro
+     * @since 1.8.0
+     */
+    long pingRedis();
 }

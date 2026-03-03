@@ -6,7 +6,7 @@
 
     <groupId>com.afterlands</groupId>
     <artifactId>AfterCore</artifactId>
-    <version>1.6.0</version>
+    <version>1.8.0</version>
     <packaging>jar</packaging>
 
     <name>AfterCore</name>
@@ -26,6 +26,7 @@
         <mysql.version>8.0.28</mysql.version>
         <sqlite.version>3.45.3.0</sqlite.version>
         <caffeine.version>3.2.1</caffeine.version>
+        <jedis.version>4.4.8</jedis.version>
     </properties>
 
     <repositories>
@@ -136,6 +137,13 @@
             <artifactId>gson</artifactId>
             <version>2.11.0</version>
         </dependency>
+
+        <!-- Jedis (Redis client) -->
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>${jedis.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -192,6 +200,14 @@
                                 <relocation>
                                     <pattern>it.unimi.dsi.fastutil</pattern>
                                     <shadedPattern>com.afterlands.core.libs.fastutil</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>redis.clients</pattern>
+                                    <shadedPattern>com.afterlands.core.libs.jedis</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.pool2</pattern>
+                                    <shadedPattern>com.afterlands.core.libs.pool2</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>

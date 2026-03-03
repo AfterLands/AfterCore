@@ -5,6 +5,151 @@ All notable changes to AfterCore will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-03-03 (RedisService)
+
+### Added
+
+#### RedisService — 14° Serviço do AfterCore
+
+Novo serviço de integração Redis com Jedis 4.4.8 shaded, fornecendo cache distribuído, Pub/Sub cross-server e locks distribuídos para o ecossistema AfterLands.
+
+**Topologias suportadas:** Standalone, Sentinel, Cluster
+
+**API Pública:**
+```java
+AfterCoreAPI core = AfterCore.get();
+
+// Operações no datasource default
+core.redis().set("key", "value");
+core.redis().get("key");
+
+// Datasource específico
+RedisDataSource cache = core.redis("cache");
+cache.hset("player:uuid", "level", "10");
+cache.zrevrange("leaderboard:kills", 0, 9); // Top 10
+```
+
+**Operações completas:** Strings, Hashes, Lists, Sets, Sorted Sets, atomics (incr/decr/setnx)
+
+**Pub/Sub com subscriber threads dedicadas:**
+```java
+core.redis("default").pubsub().subscribe("server:events", msg -> {
+    core.scheduler().runSync(() -> Bukkit.broadcastMessage(msg.payload()));
+});
+core.redis("default").pubsub().publish("server:events", "Player joined!");
+```
+
+**Distributed Locks via Lua scripts atômicos:**
+```java
+core.redis("default").tryLock("resource:123", 30000)
+    .thenAccept(optLock -> {
+        if (optLock.isPresent()) {
+            try { processResource(); }
+            finally { core.redis("default").unlock(optLock.get()); }
+        }
+    });
+```
+
+**Raw Access:** `execute()`, `run()`, `pipeline()` para operações não cobertas pela API tipada
+
+**Novos arquivos criados (`com.afterlands.core.redis`):**
+- `RedisTopology` — enum Standalone/Sentinel/Cluster
+- `RedisFunction`, `RedisConsumer` — functional interfaces
+- `RedisDataSource` — interface datasource com todas operações
+- `RedisService` — interface registry multi-datasource
+- `NoOpRedisService`, `NoOpRedisDataSource` — graceful degradation
+- `impl/JedisRedisDataSource` — implementação Jedis com suporte a 3 topologias
+- `impl/JedisRedisService` — registry de datasources
+- `pubsub/RedisMessage` — record de mensagem
+- `pubsub/RedisMessageListener` — listener interface
+- `pubsub/RedisPubSub` — interface Pub/Sub
+- `pubsub/NoOpRedisPubSub` — no-op Pub/Sub
+- `pubsub/impl/JedisPubSubManager` — Pub/Sub com daemon thread e auto-reconnect
+- `lock/RedisLock` — record de lock distribuído
+- `lock/impl/RedisLockManager` — locks via Lua scripts com retry e jitter
+
+**`config.yml` — nova seção `redis`:**
+```yaml
+redis:
+  enabled: false
+  pool: { max-total: 16, max-idle: 8, min-idle: 2 }
+  datasources:
+    default:
+      topology: "standalone"
+      standalone: { host: "localhost", port: 6379 }
+      pubsub: { enabled: true }
+      lock: { default-ttl-ms: 30000 }
+```
+
+### Changed
+
+- `AfterCoreAPI` — novo método `redis()` + atalho `redis(String name)`
+- `AfterCorePlugin` — delegate `redis()` → `registry.getRedis()`
+- `PluginRegistry` — inicialização do RedisService após SqlService, shutdown antes do SqlService
+- `DiagnosticsSnapshot` — novo record `RedisInfo` + `RedisPoolStats`
+- `DiagnosticsService` — novo método `pingRedis()`
+- `DefaultDiagnosticsService` — recebe `RedisService` no constructor, `captureRedisInfo()` + `pingRedis()`
+- `ACoreCommand` — novo subcomando `/acore redis`, atualizado `/acore all` e `/acore status`
+- `pom.xml` — Jedis 4.4.8 dep + shade relocations (`redis.clients` → `libs.jedis`, `commons-pool2` → `libs.pool2`), version bumped `1.7.0` → `1.8.0`
+- `config.yml` — `config-version` bumped `2.1` → `2.2`, nova seção `redis`
+
+### Documentation
+
+- Novo `docs/wiki/RedisService.md` com documentação completa
+- `docs/wiki/_Sidebar.md` atualizado com RedisService link
+
+---
+
+## [1.7.0] - 2026-02-28 (ConfigUpdater Rework)
+
+### Changed
+
+#### ConfigUpdater — Merge completo com preservação de comentários
+
+Reescrita completa do sistema de merge de configuração. O problema raiz era duplo:
+
+1. **Smart Merge unidirecional** — ao detectar chaves do default ausentes no user, re-adicionava cegamente itens de inventário que o usuário havia movido/deletado (ex: slot `'23'` → `'16'` resultava em duplicação do slot `'23'`).
+2. **Perda de comentários** — quando keys nested eram adicionadas via `getMissingNestedKeys()`, o sistema usava `config.saveToString()` (Bukkit), que descarta todos os comentários YAML.
+
+**Solução:** O arquivo nunca mais é serializado via Bukkit. Em vez disso, é **reconstruído linha-por-linha** usando os novos componentes abaixo.
+
+**Novos arquivos criados (`com.afterlands.core.config.update`):**
+
+- **`MergeOptions`** — Container imutável com patterns de seções "user-owned" cujos filhos pertencem ao usuário e **não** são mergeados do default.
+  - Patterns suportados: `"editor.items"` (exato), `"*.items"` (1 nível), `"**.items"` (qualquer profundidade)
+  - API: `MergeOptions.builder().userOwned("*.items").build()`
+
+- **`YamlCommentParser`** — Parseia as linhas do arquivo default e mapeia cada path YAML ao bloco de comentários que o precede. Retorna `ParseResult` com header, `Map<path, comentários>` e footer.
+
+- **`CommentAwareWriter`** — Reconstrói o YAML completo key-por-key:
+  - Usa comentários do default (`ParseResult`)
+  - Usa valores do usuário (quando existem) ou do default (keys novas)
+  - Copia seções user-owned integralmente do user (sem consultar default)
+  - Indentação correta para listas e seções aninhadas
+  - Aspas automáticas em keys numéricas (slots `'23'`) e strings especiais
+
+**Arquivo removido:** `SmartConfigMerger` — substituído integralmente por `CommentAwareWriter`.
+
+**`ConfigUpdater` — Mudanças:**
+- Novo campo `MergeOptions mergeOptions` (setter `setMergeOptions()`)
+- Migrations continuam operando em memória via Bukkit `FileConfiguration`
+- Serialização final usa `CommentAwareWriter` em vez de `saveToString()`
+- `getMissingRootKeys()`, `getMissingNestedKeys()`, `safeSave()` removidos (lógica absorvida pelo writer)
+
+**`ConfigService` — Novos overloads:**
+```java
+boolean update(Plugin plugin, String resourceName, MergeOptions mergeOptions);
+boolean update(Plugin plugin, String resourceName, MergeOptions mergeOptions, Consumer<ConfigUpdater> options);
+```
+Os métodos existentes delegam com `MergeOptions.none()` — retrocompatibilidade total.
+
+### Documentation
+
+- `docs/wiki/Configuration.md` atualizado com documentação completa do novo sistema
+- `docs/wiki/_Sidebar.md` atualizado com link direto para Configuration
+
+---
+
 ## [1.6.0] - 2026-02-23 (InputService)
 
 ### Added

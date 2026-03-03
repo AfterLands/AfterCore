@@ -2,6 +2,7 @@
 *   **Getting Started**
     *   [Getting Started](Getting-Started)
     *   [Config and Messages](Config-and-Messages)
+    *   [ConfigUpdater](Configuration)
 *   **Core Concepts**
     *   [AfterCoreAPI](AfterCoreAPI)
     *   [Utilities](Utilities)
@@ -16,6 +17,7 @@
         *   [Inventory Examples](Inventory-Framework-Examples)
     *   [MetricsService](MetricsService)
     *   [ProtocolService](ProtocolService)
+    *   [RedisService](RedisService)
     *   [SchedulerService](SchedulerService)
     *   [InputService](InputService)
     *   [SqlService](SqlService)

@@ -3,7 +3,7 @@
 # Regra: ZERO I/O na main thread. Tudo que tocar DB deve ser async.
 
 # Versão do config (usado para migrations automáticas)
-config-version: 2.1
+config-version: 2.2
 
 debug: false
 
@@ -57,6 +57,59 @@ database:
     #   sqlite:
     #     file: "local-data.db"
     #     connection-init-sql: "PRAGMA foreign_keys=ON;"
+
+# =====================================================================
+# REDIS (v1.8.0+)
+# =====================================================================
+# Cache distribuído, pub/sub cross-server e locks distribuídos.
+# Requer um servidor Redis acessível. Desabilitado por padrão.
+
+redis:
+  enabled: false
+
+  # Pool defaults (herdados por todos os datasources)
+  pool:
+    max-total: 16
+    max-idle: 8
+    min-idle: 2
+    timeout-ms: 3000
+    test-on-borrow: true
+
+  datasources:
+    default:
+      topology: "standalone"  # standalone, sentinel, cluster
+
+      standalone:
+        host: "localhost"
+        port: 6379
+        password: ""
+        database: 0
+        ssl: false
+
+      # sentinel:
+      #   master-name: "mymaster"
+      #   nodes:
+      #     - "host1:26379"
+      #     - "host2:26379"
+      #   password: ""
+      #   database: 0
+
+      # cluster:
+      #   nodes:
+      #     - "host1:7000"
+      #     - "host2:7001"
+      #     - "host3:7002"
+      #   password: ""
+      #   max-attempts: 5
+
+      pubsub:
+        enabled: true
+        subscriber-threads: 1
+
+      lock:
+        default-ttl-ms: 30000
+        retry-delay-ms: 100
+        max-retries: 3
 
 concurrency:
   # Threads para tarefas bloqueantes (DB / I/O). Ajustar conforme hardware.

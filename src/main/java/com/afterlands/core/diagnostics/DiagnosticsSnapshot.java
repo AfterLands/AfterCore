@@ -19,6 +19,7 @@ public record DiagnosticsSnapshot(
         @NotNull Instant timestamp,
         @NotNull Map<String, DependencyInfo> dependencies,
         @NotNull DatabaseInfo databaseInfo,
+        @NotNull RedisInfo redisInfo,
         @NotNull ThreadPoolInfo threadPoolInfo,
         @NotNull SystemInfo systemInfo
 ) {
@@ -63,6 +64,39 @@ public record DiagnosticsSnapshot(
             return new DatabaseInfo(true, true, type, null, pingMs, stats);
         }
     }
+
+    /**
+     * Informações sobre o Redis.
+     */
+    public record RedisInfo(
+            boolean enabled,
+            boolean initialized,
+            @Nullable String topology,
+            @Nullable Long pingMs,
+            @Nullable RedisPoolStats poolStats
+    ) {
+        public static RedisInfo disabled() {
+            return new RedisInfo(false, false, null, null, null);
+        }
+
+        public static RedisInfo healthy(@NotNull String topology, long pingMs, @Nullable RedisPoolStats stats) {
+            return new RedisInfo(true, true, topology, pingMs, stats);
+        }
+
+        public static RedisInfo error(@NotNull String topology) {
+            return new RedisInfo(true, false, topology, null, null);
+        }
+    }
+
+    /**
+     * Estatísticas do pool Redis.
+     */
+    public record RedisPoolStats(
+            int active,
+            int idle,
+            int waiters,
+            int maxTotal
+    ) {}
 
     /**
      * Estatísticas do pool de conexões.
